@@ -1,8 +1,8 @@
 # 🚀 Your PocketBase Server is LIVE!
 
-**Deployed:** January 9, 2026  
+**Deployed:** January 10, 2026  
 **Region:** eu-west-2 (London)  
-**Status:** ✅ Active
+**Status:** ✅ Active (Redeployed with fixes)
 
 ---
 
@@ -32,8 +32,8 @@
 
 | Property | Value |
 |----------|-------|
-| **IP Address** | 18.133.25.225 |
-| **Instance ID** | i-097bba5dd06c81383 |
+| **IP Address** | 13.135.181.201 |
+| **Instance ID** | i-07a1c65a10130ee13 |
 | **Instance Type** | t3.small (2 vCPU, 2GB RAM) |
 | **Storage** | 50GB EBS (gp3) |
 | **SSH Key** | bettermap-key |
@@ -50,18 +50,16 @@ Go to: https://dash.cloudflare.com → oceannet.dev → DNS
 ```
 Type:    A
 Name:    db
-Content: 18.133.25.225
-Proxy:   ☁️ Grey (DNS only)
-TTL:     Auto
+Content: 13.135.181.201
+TTL:     1 Hour
 ```
 
 **Record 2:**
 ```
 Type:    A
 Name:    *.db
-Content: 18.133.25.225
-Proxy:   ☁️ Grey (DNS only)
-TTL:     Auto
+Content: 13.135.181.201
+TTL:     1 Hour
 ```
 
 **Critical:** Must be **grey cloud** (DNS only), NOT orange (proxied)!
@@ -84,13 +82,13 @@ TTL:     Auto
 
 ### Option 1: AWS Systems Manager (Recommended)
 ```bash
-aws ssm start-session --target i-097bba5dd06c81383
+aws ssm start-session --target i-07a1c65a10130ee13
 sudo tail -f /var/log/user-data.log
 ```
 
 ### Option 2: SSH
 ```bash
-ssh -i ~/.ssh/database_key.pem ec2-user@18.133.25.225
+ssh -i ~/.ssh/bettermap-key.pem ec2-user@13.135.181.201
 sudo tail -f /var/log/user-data.log
 ```
 
@@ -190,11 +188,11 @@ docker logs pocketbase-acme-corp
 
 | Type | ID | Purpose |
 |------|-----|---------|
-| VPC | vpc-030a90c8331400e06 | Networking |
-| Security Group | sg-03a1bdbe51827cb45 | Firewall |
-| S3 Bucket | pocketbase-manager-backups-... | Backups |
-| EC2 Instance | i-097bba5dd06c81383 | Server |
-| Elastic IP | 18.133.25.225 | Static IP |
+| VPC | vpc-0e40b897ec45296d5 | Networking |
+| Security Group | sg-0214a7434051ac4d5 | Firewall |
+| S3 Bucket | pocketbase-manager-backups-20260110181556151000000003 | Backups |
+| EC2 Instance | i-07a1c65a10130ee13 | Server |
+| Elastic IP | 13.135.181.201 | Static IP |
 
 ---
 
@@ -203,12 +201,13 @@ docker logs pocketbase-acme-corp
 ### Update Server Code
 ```bash
 # SSH into server
-ssh -i ~/.ssh/database_key.pem ec2-user@18.133.25.225
+ssh -i ~/.ssh/bettermap-key.pem ec2-user@13.135.181.201
 
-# Pull latest and restart
+# Pull latest from GitHub and rebuild
 cd /opt/pocketbase-manager
-docker compose pull
-docker compose up -d
+git pull
+docker build -t pocketbase-manager:latest .
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ### Scale Up (More RAM/CPU)
@@ -238,7 +237,7 @@ terraform apply
 # Check DNS propagation
 dig db.oceannet.dev
 
-# Should return: 18.133.25.225
+# Should return: 13.135.181.201
 ```
 
 ### SSL Certificate Issues
@@ -246,16 +245,17 @@ dig db.oceannet.dev
 # SSH into server
 docker logs traefik | grep -i cert
 
-# Ensure DNS is grey cloud in Cloudflare!
+# Ensure DNS records are correct in GoDaddy!
 ```
 
 ### API Not Responding
 ```bash
 # Check if server finished setup
-aws ssm start-session --target i-097bba5dd06c81383
+aws ssm start-session --target i-07a1c65a10130ee13
 tail -100 /var/log/user-data.log
 
-# Should see "Setup complete" message
+# Look for "Container pocketbase-manager  Started"
+# Look for "Container traefik  Started"
 ```
 
 ---
