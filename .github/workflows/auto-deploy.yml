@@ -1,0 +1,106 @@
+name: Auto Deploy on Push
+
+on:
+  push:
+    branches:
+      - main  # Triggers on push to main branch
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+env:
+  AWS_REGION: eu-west-2
+
+jobs:
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Instance ID from Terraform
+        id: get-instance
+        run: |
+          # You can hardcode this or fetch from Terraform outputs
+          INSTANCE_ID="i-0eeb2f36b052f1228"
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Server via SSM
+        run: |
+          echo "🚀 Deploying to production server..."
+          
+          # Send command to server via AWS Systems Manager
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ steps.get-instance.outputs.instance_id }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Auto-deploy from GitHub push" \
+            --parameters 'commands=[
+              "echo \"Starting deployment at $(date)\"",
+              "cd /opt/pocketbase-manager",
+              "echo \"Pulling latest code from GitHub...\"",
+              "git pull origin main",
+              "echo \"Rebuilding Docker image...\"",
+              "docker build -t pocketbase-manager:latest .",
+              "echo \"Restarting containers...\"",
+              "docker compose -f docker-compose.prod.yml up -d --force-recreate",
+              "echo \"Cleaning up old images...\"",
+              "docker system prune -f",
+              "echo \"Deployment completed at $(date)\"",
+              "echo \"Checking container status...\"",
+              "docker ps | grep pocketbase"
+            ]' \
+            --output text \
+            --query 'Command.CommandId')
+          
+          echo "Command ID: $COMMAND_ID"
+          echo "command_id=$COMMAND_ID" >> $GITHUB_ENV
+          
+          # Wait for command to complete
+          echo "Waiting for deployment to complete..."
+          aws ssm wait command-executed \
+            --command-id $COMMAND_ID \
+            --instance-id ${{ steps.get-instance.outputs.instance_id }} \
+            --max-attempts 30 \
+            --delay 10 || true
+
+      - name: Get Deployment Status
+        run: |
+          # Get command execution results
+          aws ssm get-command-invocation \
+            --command-id ${{ env.command_id }} \
+            --instance-id ${{ steps.get-instance.outputs.instance_id }} \
+            --query '[Status,StandardOutputContent,StandardErrorContent]' \
+            --output text
+
+      - name: Health Check
+        run: |
+          echo "🏥 Running health check..."
+          
+          # Wait a bit for services to start
+          sleep 30
+          
+          # Check if API is responding
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://manager.db.oceannet.dev/api/health || echo "000")
+          
+          if [ "$RESPONSE" = "200" ]; then
+            echo "✅ Health check passed! API is responding."
+          else
+            echo "⚠️ Health check returned: $RESPONSE"
+            echo "Services may still be starting up. Check manually in a few minutes."
+          fi
+
+      - name: Notify Deployment Success
+        if: success()
+        run: |
+          echo "🎉 Deployment completed successfully!"
+          echo "Server: https://manager.db.oceannet.dev"
+          echo "Instance: ${{ steps.get-instance.outputs.instance_id }}"
+          echo "Time: $(date)"
+
