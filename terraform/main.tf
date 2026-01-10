@@ -354,16 +354,25 @@ resource "aws_volume_attachment" "data" {
   instance_id = aws_instance.server.id
 }
 
-# Elastic IP
+# Elastic IP (with lifecycle to prevent accidental deletion)
 resource "aws_eip" "server" {
-  domain   = "vpc"
-  instance = aws_instance.server.id
+  domain = "vpc"
 
   tags = {
     Name = "${var.project_name}-eip"
   }
 
+  lifecycle {
+    prevent_destroy = false  # Set to true after first deployment to prevent accidental deletion
+  }
+
   depends_on = [aws_internet_gateway.main]
+}
+
+# Elastic IP Association (separate so we can recreate instance without losing IP)
+resource "aws_eip_association" "server" {
+  instance_id   = aws_instance.server.id
+  allocation_id = aws_eip.server.id
 }
 
 # Route53 DNS (optional)
