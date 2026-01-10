@@ -1,0 +1,23 @@
+# AWS Configuration
+aws_region  = "us-east-1"
+environment = "prod"
+
+# Network Security
+# IMPORTANT: Restrict these in production!
+allowed_ssh_cidrs = ["YOUR_IP/32"]  # Replace with your IP
+allowed_api_cidrs = ["0.0.0.0/0"]
+
+# EC2 Configuration
+instance_type    = "t3.small"  # 2 vCPU, 2GB RAM
+key_pair_name    = "your-key-pair"
+data_volume_size = 50  # GB
+
+# Domain Configuration
+domain          = "pocketbase.youragency.com"
+route53_zone_id = ""  # Optional: your Route53 zone ID
+
+# Application Configuration
+api_key     = "your-secure-api-key-here"  # Generate a strong random key
+admin_email = "admin@youragency.com"
+acme_email  = "ssl@youragency.com"
+

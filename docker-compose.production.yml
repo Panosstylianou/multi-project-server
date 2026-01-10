@@ -1,0 +1,45 @@
+version: '3.8'
+
+# Production docker-compose override
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.production.yml up -d
+
+services:
+  manager:
+    environment:
+      - NODE_ENV=production
+      - USE_HTTPS=true
+    labels:
+      - "traefik.http.routers.manager.entrypoints=websecure"
+      - "traefik.http.routers.manager.tls=true"
+      - "traefik.http.routers.manager.tls.certresolver=letsencrypt"
+      # Redirect HTTP to HTTPS
+      - "traefik.http.middlewares.manager-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.manager-http.middlewares=manager-redirect"
+      - "traefik.http.routers.manager-http.rule=Host(`manager.${BASE_DOMAIN}`)"
+      - "traefik.http.routers.manager-http.entrypoints=web"
+
+  traefik:
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=pocketbase-network"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--log.level=INFO"
+      # Let's Encrypt SSL
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      # Security headers
+      - "--entrypoints.websecure.http.tls=true"
+    labels:
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls=true"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      # Basic auth for dashboard
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_AUTH}"
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+

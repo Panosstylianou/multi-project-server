@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # PocketBase Manager API
+  manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pocketbase-manager
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DOCKER_SOCKET=/var/run/docker.sock
+      - POCKETBASE_IMAGE=ghcr.io/muchobien/pocketbase:latest
+      - POCKETBASE_NETWORK=pocketbase-network
+      - DATA_DIR=/app/data
+      - BACKUPS_DIR=/app/backups
+      - BASE_DOMAIN=${BASE_DOMAIN:-localhost}
+      - USE_HTTPS=${USE_HTTPS:-false}
+      - API_KEY=${API_KEY:-dev-api-key}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@localhost}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - pocketbase-data:/app/data
+      - pocketbase-backups:/app/backups
+    networks:
+      - pocketbase-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.manager.rule=Host(`manager.${BASE_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.manager.entrypoints=web"
+      - "traefik.http.services.manager.loadbalancer.server.port=3000"
+
+  # Traefik reverse proxy
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=${TRAEFIK_INSECURE:-true}"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=pocketbase-network"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--log.level=INFO"
+      # Uncomment for Let's Encrypt SSL
+      # - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      # - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-ssl@localhost}"
+      # - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "9090:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+    networks:
+      - pocketbase-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${BASE_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+
+networks:
+  pocketbase-network:
+    name: pocketbase-network
+    driver: bridge
+
+volumes:
+  pocketbase-data:
+    name: pocketbase-data
+  pocketbase-backups:
+    name: pocketbase-backups
+  traefik-certs:
+    name: traefik-certs
+

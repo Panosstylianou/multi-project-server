@@ -1,0 +1,26 @@
+version: '3.8'
+
+# Development docker-compose override
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+services:
+  manager:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data:/app/data
+      - ./backups:/app/backups
+    environment:
+      - NODE_ENV=development
+      - API_KEY=dev-api-key
+    command: npm run dev
+
+  traefik:
+    ports:
+      - "8080:8080"  # Expose dashboard in dev
+
