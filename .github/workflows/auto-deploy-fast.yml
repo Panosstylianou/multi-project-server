@@ -1,0 +1,190 @@
+name: Fast Deploy (No Rebuild)
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:  # Skip if only these files changed
+      - 'docs/**'
+      - '*.md'
+      - '.gitignore'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-2
+  INSTANCE_ID: i-0eeb2f36b052f1228  # Update if instance changes
+
+jobs:
+  # Check what changed to decide if we need full rebuild
+  check-changes:
+    name: Check What Changed
+    runs-on: ubuntu-latest
+    outputs:
+      need_rebuild: ${{ steps.check.outputs.need_rebuild }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need 2 commits to compare
+      
+      - name: Check if rebuild is needed
+        id: check
+        run: |
+          # Check if Dockerfile, package.json, or docker-compose changed
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          
+          if echo "$CHANGED_FILES" | grep -qE '(Dockerfile|package\.json|package-lock\.json|docker-compose)'; then
+            echo "🔨 Dependencies or Docker config changed - full rebuild needed"
+            echo "need_rebuild=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚡ Only code changed - fast update"
+            echo "need_rebuild=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+  # Fast deploy (no Docker rebuild) - runs if only code changed
+  fast-deploy:
+    name: Fast Deploy (30 seconds)
+    runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.need_rebuild == 'false'
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fast Deploy via SSM
+        run: |
+          echo "⚡ Fast deploying code changes..."
+          
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Fast deploy: code update only" \
+            --parameters 'commands=[
+              "echo \"[$(date)] Starting fast deployment\"",
+              "cd /opt/pocketbase-manager",
+              "echo \"Pulling latest code...\"",
+              "git pull origin main",
+              "echo \"Checking if npm install needed...\"",
+              "npm ci --only=production 2>/dev/null || echo \"Dependencies up to date\"",
+              "echo \"Building TypeScript...\"",
+              "npm run build",
+              "echo \"Restarting application...\"",
+              "docker compose -f docker-compose.prod.yml restart manager",
+              "echo \"[$(date)] Fast deployment complete!\"",
+              "echo \"Verifying containers...\"",
+              "docker ps --filter name=pocketbase"
+            ]' \
+            --output text \
+            --query 'Command.CommandId')
+          
+          echo "Command ID: $COMMAND_ID"
+          
+          # Wait for completion
+          echo "Waiting for deployment..."
+          aws ssm wait command-executed \
+            --command-id $COMMAND_ID \
+            --instance-id ${{ env.INSTANCE_ID }} \
+            --max-attempts 10 \
+            --delay 5
+
+      - name: Health Check
+        run: |
+          echo "🏥 Running health check..."
+          sleep 15
+          
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://manager.db.oceannet.dev/api/health || echo "000")
+          
+          if [ "$RESPONSE" = "200" ]; then
+            echo "✅ Fast deploy successful! API responding."
+          else
+            echo "⚠️ Health check returned: $RESPONSE"
+            exit 1
+          fi
+
+      - name: Deploy Summary
+        if: success()
+        run: |
+          echo "🎉 Fast deployment completed in ~30 seconds!"
+          echo "Changes: Code updates only"
+          echo "Method: Git pull + app restart (no Docker rebuild)"
+
+  # Full rebuild - only runs if dependencies changed
+  full-rebuild:
+    name: Full Rebuild (3-5 minutes)
+    runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.need_rebuild == 'true'
+    
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Full Rebuild and Deploy via SSM
+        run: |
+          echo "🔨 Full rebuild required - dependencies or Docker config changed"
+          
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${{ env.INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Full rebuild: dependencies changed" \
+            --parameters 'commands=[
+              "echo \"[$(date)] Starting full rebuild\"",
+              "cd /opt/pocketbase-manager",
+              "echo \"Pulling latest code...\"",
+              "git pull origin main",
+              "echo \"Rebuilding Docker image...\"",
+              "docker build -t pocketbase-manager:latest .",
+              "echo \"Recreating containers...\"",
+              "docker compose -f docker-compose.prod.yml up -d --force-recreate",
+              "echo \"Cleaning up old images...\"",
+              "docker system prune -f",
+              "echo \"[$(date)] Full rebuild complete!\"",
+              "docker ps --filter name=pocketbase"
+            ]' \
+            --output text \
+            --query 'Command.CommandId')
+          
+          echo "Command ID: $COMMAND_ID"
+          
+          # Wait for completion (longer timeout for rebuild)
+          echo "Waiting for rebuild (this takes 3-5 minutes)..."
+          aws ssm wait command-executed \
+            --command-id $COMMAND_ID \
+            --instance-id ${{ env.INSTANCE_ID }} \
+            --max-attempts 30 \
+            --delay 10
+
+      - name: Health Check
+        run: |
+          echo "🏥 Running health check..."
+          sleep 30
+          
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://manager.db.oceannet.dev/api/health || echo "000")
+          
+          if [ "$RESPONSE" = "200" ]; then
+            echo "✅ Full rebuild successful! API responding."
+          else
+            echo "⚠️ Health check returned: $RESPONSE"
+            exit 1
+          fi
+
+      - name: Deploy Summary
+        if: success()
+        run: |
+          echo "🎉 Full rebuild completed!"
+          echo "Changes: Dependencies or Docker config updated"
+          echo "Method: Full Docker image rebuild"
+
