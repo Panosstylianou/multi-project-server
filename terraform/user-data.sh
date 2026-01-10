@@ -93,13 +93,21 @@ ACME_EMAIL=${acme_email}
 TRAEFIK_INSECURE=false
 EOF
 
-# Create docker-compose.yml
-cat > /opt/pocketbase-manager/docker-compose.yml << 'COMPOSE_EOF'
+# Clone project from GitHub
+git clone https://github.com/panosstylianou/multi-project-server.git /tmp/multi-project-server
+cp -r /tmp/multi-project-server/* /opt/pocketbase-manager/
+cd /opt/pocketbase-manager
+
+# Build the Docker image locally
+docker build -t pocketbase-manager:latest -f Dockerfile .
+
+# Create docker-compose.yml for production
+cat > /opt/pocketbase-manager/docker-compose.prod.yml << 'COMPOSE_EOF'
 version: '3.8'
 
 services:
   manager:
-    image: ghcr.io/YOUR_ORG/pocketbase-manager:latest
+    image: pocketbase-manager:latest
     container_name: pocketbase-manager
     restart: unless-stopped
     ports:
@@ -176,11 +184,8 @@ volumes:
     name: traefik-certs
 COMPOSE_EOF
 
-# Pull images
-docker compose pull || true
-
-# Start services
-docker compose up -d
+# Start services with the production compose file
+docker compose -f docker-compose.prod.yml up -d
 
 # Create systemd service for auto-start
 cat > /etc/systemd/system/pocketbase-manager.service << 'SERVICE_EOF'
@@ -193,8 +198,8 @@ Requires=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/opt/pocketbase-manager
-ExecStart=/usr/local/lib/docker/cli-plugins/docker-compose up -d
-ExecStop=/usr/local/lib/docker/cli-plugins/docker-compose down
+ExecStart=/usr/local/lib/docker/cli-plugins/docker-compose -f docker-compose.prod.yml up -d
+ExecStop=/usr/local/lib/docker/cli-plugins/docker-compose -f docker-compose.prod.yml down
 
 [Install]
 WantedBy=multi-user.target
