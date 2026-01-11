@@ -31,17 +31,13 @@ jobs:
       - name: Check if rebuild is needed
         id: check
         run: |
-          # Check if Dockerfile, package.json, or docker-compose changed
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          # Always do full rebuild for now to ensure code changes take effect
+          # The fast deploy approach doesn't work because Docker container uses baked-in code
+          echo "🔨 Always doing full rebuild for reliability"
+          echo "need_rebuild=true" >> $GITHUB_OUTPUT
           
-          if echo "$CHANGED_FILES" | grep -qE '(Dockerfile|package\.json|package-lock\.json|docker-compose)'; then
-            echo "🔨 Dependencies or Docker config changed - full rebuild needed"
-            echo "need_rebuild=true" >> $GITHUB_OUTPUT
-          else
-            echo "⚡ Only code changed - fast update"
-            echo "need_rebuild=false" >> $GITHUB_OUTPUT
-          fi
-          
+          # Show changed files for logging
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "Unable to diff")
           echo "Changed files:"
           echo "$CHANGED_FILES"
 
