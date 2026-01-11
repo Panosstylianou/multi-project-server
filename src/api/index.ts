@@ -1,14 +1,16 @@
-// PocketBase Manager API - v1.1.0
+// PocketBase Manager API - v1.2.0
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../config/index.js';
 import { createChildLogger } from '../utils/logger.js';
-import { apiKeyAuthWriteOnly, requestLogger, errorHandler } from './middleware/auth.js';
+import { combinedAuth, requestLogger, errorHandler } from './middleware/auth.js';
 import projectsRouter from './routes/projects.js';
 import healthRouter from './routes/health.js';
 import monitoringRouter from './routes/monitoring.js';
+import authRouter from './routes/auth.js';
+import { authService } from '../services/auth-service.js';
 
 const logger = createChildLogger('api');
 
@@ -35,10 +37,11 @@ export function createServer() {
 
   // Public endpoints (no auth required)
   app.use('/api/health', healthRouter);
-  app.use('/api/monitoring', monitoringRouter);
+  app.use('/api/auth', authRouter);
 
-  // Projects API (GET is public for dashboard, write operations require auth)
-  app.use('/api/projects', apiKeyAuthWriteOnly, projectsRouter);
+  // Protected endpoints (require JWT or API key for write operations)
+  app.use('/api/monitoring', monitoringRouter);
+  app.use('/api/projects', combinedAuth, projectsRouter);
 
   // API documentation endpoint (public)
   app.get('/api/docs', (req, res) => {

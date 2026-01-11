@@ -1,5 +1,6 @@
 import { startServer } from './api/index.js';
 import { projectManager } from './services/project-manager.js';
+import { authService } from './services/auth-service.js';
 import { logger } from './utils/logger.js';
 
 async function main() {
@@ -8,6 +9,7 @@ async function main() {
   try {
     // Initialize services
     await projectManager.initialize();
+    await authService.initialize();
 
     // Start API server
     await startServer();

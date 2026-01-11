@@ -85,477 +85,535 @@
 </head>
 <body class="bg-surface-900 text-gray-100 min-h-screen font-sans">
   <div x-data="dashboard()" x-init="init()" class="min-h-screen">
-    <!-- Header -->
-    <header class="border-b border-surface-700 bg-surface-800/50 backdrop-blur-xl sticky top-0 z-50">
-      <div class="max-w-7xl mx-auto px-6 py-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-blue-500 flex items-center justify-center">
-              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    
+    <!-- Login Screen -->
+    <template x-if="!isAuthenticated && !loading">
+      <div class="min-h-screen flex items-center justify-center p-4">
+        <div class="w-full max-w-md">
+          <!-- Logo -->
+          <div class="text-center mb-8">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-blue-500 flex items-center justify-center mx-auto mb-4">
+              <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
               </svg>
             </div>
-            <div>
-              <h1 class="text-xl font-bold gradient-text">PocketBase Manager</h1>
-              <p class="text-sm text-gray-400">Multi-tenant Database Platform</p>
+            <h1 class="text-2xl font-bold gradient-text">PocketBase Manager</h1>
+            <p class="text-gray-400 mt-1">Sign in to manage your databases</p>
+          </div>
+          
+          <!-- Login Form -->
+          <div class="bg-surface-800 rounded-2xl p-8 border border-surface-700">
+            <form @submit.prevent="login()" class="space-y-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                <input 
+                  type="email" 
+                  x-model="loginForm.email"
+                  placeholder="admin@localhost"
+                  class="w-full px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors"
+                  required
+                  autofocus
+                >
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                <input 
+                  type="password" 
+                  x-model="loginForm.password"
+                  placeholder="••••••••"
+                  class="w-full px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors"
+                  required
+                >
+              </div>
+              
+              <div x-show="loginError" class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <span x-text="loginError"></span>
+              </div>
+              
+              <button 
+                type="submit" 
+                :disabled="loggingIn"
+                class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-white font-semibold hover:from-brand-500 hover:to-brand-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+              >
+                <template x-if="loggingIn">
+                  <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </template>
+                <span x-text="loggingIn ? 'Signing in...' : 'Sign In'"></span>
+              </button>
+            </form>
+          </div>
+          
+          <p class="text-center text-gray-500 text-sm mt-6">
+            Default credentials: admin@localhost / admin123
+          </p>
+        </div>
+      </div>
+    </template>
+    
+    <!-- Loading Screen -->
+    <template x-if="loading">
+      <div class="min-h-screen flex items-center justify-center">
+        <div class="text-center">
+          <svg class="animate-spin h-12 w-12 text-brand-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="text-gray-400">Loading...</p>
+        </div>
+      </div>
+    </template>
+    
+    <!-- Dashboard (only shown when authenticated) -->
+    <template x-if="isAuthenticated && !loading">
+      <div>
+        <!-- Header -->
+        <header class="border-b border-surface-700 bg-surface-800/50 backdrop-blur-xl sticky top-0 z-50">
+          <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-blue-500 flex items-center justify-center">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+                  </svg>
+                </div>
+                <div>
+                  <h1 class="text-xl font-bold gradient-text">PocketBase Manager</h1>
+                  <p class="text-sm text-gray-400">Multi-tenant Database Platform</p>
+                </div>
+              </div>
+              
+              <div class="flex items-center gap-3">
+                <!-- User Info -->
+                <div class="text-right mr-2">
+                  <p class="text-sm font-medium text-gray-200" x-text="user?.name || 'Admin'"></p>
+                  <p class="text-xs text-gray-500" x-text="user?.email"></p>
+                </div>
+                
+                <!-- System Status Badge -->
+                <div 
+                  :class="{
+                    'bg-brand-500/10 text-brand-400 border-brand-500/30': systemStatus === 'healthy',
+                    'bg-yellow-500/10 text-yellow-400 border-yellow-500/30': systemStatus === 'degraded',
+                    'bg-red-500/10 text-red-400 border-red-500/30': systemStatus === 'unhealthy'
+                  }"
+                  class="px-4 py-2 rounded-full border flex items-center gap-2"
+                >
+                  <span 
+                    :class="{
+                      'bg-brand-500': systemStatus === 'healthy',
+                      'bg-yellow-500': systemStatus === 'degraded',
+                      'bg-red-500': systemStatus === 'unhealthy'
+                    }"
+                    class="w-2 h-2 rounded-full animate-pulse-glow"
+                  ></span>
+                  <span class="font-medium capitalize" x-text="systemStatus"></span>
+                </div>
+                
+                <!-- Refresh Button -->
+                <button 
+                  @click="refresh()" 
+                  :class="{ 'animate-spin': refreshing }"
+                  class="p-2 rounded-lg bg-surface-700 hover:bg-surface-600 transition-colors"
+                  title="Refresh"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                </button>
+                
+                <!-- Logout Button -->
+                <button 
+                  @click="logout()" 
+                  class="p-2 rounded-lg bg-surface-700 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                  title="Logout"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-6 py-8">
+          <!-- System Metrics -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- CPU -->
+            <div class="bg-surface-800 rounded-2xl p-6 border border-surface-700 card-hover">
+              <div class="flex items-start justify-between mb-4">
+                <h3 class="text-gray-400 font-medium">CPU Usage</h3>
+                <div class="p-2 rounded-lg bg-blue-500/10">
+                  <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white" x-text="(system?.cpu?.usage || 0) + '%'"></p>
+              <p class="text-sm text-gray-500 mt-1" x-text="(system?.cpu?.cores || 0) + ' cores'"></p>
+            </div>
+            
+            <!-- Memory -->
+            <div class="bg-surface-800 rounded-2xl p-6 border border-surface-700 card-hover">
+              <div class="flex items-start justify-between mb-4">
+                <h3 class="text-gray-400 font-medium">Memory</h3>
+                <div class="p-2 rounded-lg bg-purple-500/10">
+                  <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white" x-text="(system?.memory?.usagePercent || 0) + '%'"></p>
+              <p class="text-sm text-gray-500 mt-1" x-text="(system?.memory?.used || '0') + ' / ' + (system?.memory?.total || '0')"></p>
+            </div>
+            
+            <!-- Disk -->
+            <div class="bg-surface-800 rounded-2xl p-6 border border-surface-700 card-hover">
+              <div class="flex items-start justify-between mb-4">
+                <h3 class="text-gray-400 font-medium">Disk</h3>
+                <div class="p-2 rounded-lg bg-orange-500/10">
+                  <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white" x-text="(system?.disk?.usagePercent || 0) + '%'"></p>
+              <p class="text-sm text-gray-500 mt-1" x-text="(system?.disk?.used || '0') + ' / ' + (system?.disk?.total || '0')"></p>
+            </div>
+            
+            <!-- Projects -->
+            <div class="bg-surface-800 rounded-2xl p-6 border border-surface-700 card-hover">
+              <div class="flex items-start justify-between mb-4">
+                <h3 class="text-gray-400 font-medium">Databases</h3>
+                <div class="p-2 rounded-lg bg-brand-500/10">
+                  <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white" x-text="projects.length"></p>
+              <p class="text-sm text-gray-500 mt-1" x-text="projects.filter(p => p.status === 'running').length + ' running'"></p>
             </div>
           </div>
           
-          <div class="flex items-center gap-4">
-            <!-- Status indicator -->
-            <div class="flex items-center gap-2 px-3 py-1.5 rounded-full" 
-                 :class="systemStatus === 'healthy' ? 'bg-green-500/10 border border-green-500/30' : systemStatus === 'degraded' ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-red-500/10 border border-red-500/30'">
-              <span class="w-2 h-2 rounded-full animate-pulse-glow"
-                    :class="systemStatus === 'healthy' ? 'bg-green-500' : systemStatus === 'degraded' ? 'bg-yellow-500' : 'bg-red-500'"></span>
-              <span class="text-sm font-medium" x-text="systemStatus.charAt(0).toUpperCase() + systemStatus.slice(1)"></span>
-            </div>
-            
-            <!-- Refresh button -->
-            <button @click="refresh()" 
-                    class="p-2 rounded-lg bg-surface-700 hover:bg-surface-600 transition-colors"
-                    :class="{ 'animate-spin': loading }">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-6 py-8">
-      <!-- Alerts Section -->
-      <div x-show="alerts.length > 0" x-cloak class="mb-8">
-        <template x-for="alert in alerts" :key="alert.id">
-          <div class="mb-3 p-4 rounded-xl border flex items-center justify-between"
-               :class="{
-                 'bg-red-500/10 border-red-500/30': alert.severity === 'critical' || alert.severity === 'error',
-                 'bg-yellow-500/10 border-yellow-500/30': alert.severity === 'warning',
-                 'bg-blue-500/10 border-blue-500/30': alert.severity === 'info'
-               }">
-            <div class="flex items-center gap-3">
-              <svg class="w-5 h-5" :class="{
-                'text-red-500': alert.severity === 'critical' || alert.severity === 'error',
-                'text-yellow-500': alert.severity === 'warning',
-                'text-blue-500': alert.severity === 'info'
-              }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-              </svg>
-              <span class="font-medium" x-text="alert.message"></span>
-            </div>
-            <button @click="acknowledgeAlert(alert.id)" class="text-gray-400 hover:text-white">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-        </template>
-      </div>
-
-      <!-- System Metrics Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <!-- CPU Card -->
-        <div class="bg-surface-800 rounded-2xl p-6 border border-surface-700 card-hover">
-          <div class="flex items-center justify-between mb-4">
-            <span class="text-gray-400 text-sm font-medium">CPU Usage</span>
-            <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
-              </svg>
-            </div>
-          </div>
-          <div class="text-3xl font-bold mb-2" x-text="system.cpu?.usage + '%'">0%</div>
-          <div class="text-sm text-gray-500" x-text="system.cpu?.cores + ' cores'">0 cores</div>
-          <div class="mt-4 h-2 bg-surface-700 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-500"
-                 :style="{ width: (system.cpu?.usage || 0) + '%' }"></div>
-          </div>
-        </div>
-
-        <!-- Memory Card -->
-        <div class="bg-surface-800 rounded-2xl p-6 border border-surface-700 card-hover">
-          <div class="flex items-center justify-between mb-4">
-            <span class="text-gray-400 text-sm font-medium">Memory</span>
-            <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-              <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-              </svg>
-            </div>
-          </div>
-          <div class="text-3xl font-bold mb-2" x-text="system.memory?.usagePercent + '%'">0%</div>
-          <div class="text-sm text-gray-500" x-text="system.memory?.used + ' / ' + system.memory?.total">0 / 0</div>
-          <div class="mt-4 h-2 bg-surface-700 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-purple-500 to-pink-400 rounded-full transition-all duration-500"
-                 :style="{ width: (system.memory?.usagePercent || 0) + '%' }"></div>
-          </div>
-        </div>
-
-        <!-- Disk Card -->
-        <div class="bg-surface-800 rounded-2xl p-6 border border-surface-700 card-hover">
-          <div class="flex items-center justify-between mb-4">
-            <span class="text-gray-400 text-sm font-medium">Disk Space</span>
-            <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
-              </svg>
-            </div>
-          </div>
-          <div class="text-3xl font-bold mb-2" x-text="system.disk?.usagePercent + '%'">0%</div>
-          <div class="text-sm text-gray-500" x-text="system.disk?.used + ' / ' + system.disk?.total">0 / 0</div>
-          <div class="mt-4 h-2 bg-surface-700 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-amber-500 to-orange-400 rounded-full transition-all duration-500"
-                 :style="{ width: (system.disk?.usagePercent || 0) + '%' }"></div>
-          </div>
-        </div>
-
-        <!-- Uptime Card -->
-        <div class="bg-surface-800 rounded-2xl p-6 border border-surface-700 card-hover">
-          <div class="flex items-center justify-between mb-4">
-            <span class="text-gray-400 text-sm font-medium">Uptime</span>
-            <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-              <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </div>
-          </div>
-          <div class="text-3xl font-bold mb-2" x-text="formatUptime(system.uptime)">0d 0h</div>
-          <div class="text-sm text-gray-500" x-text="system.platform || 'Loading...'">Loading...</div>
-          <div class="mt-4 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            <span class="text-sm text-green-400">Online</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Projects Section -->
-      <div class="bg-surface-800 rounded-2xl border border-surface-700 mb-8">
-        <div class="p-6 border-b border-surface-700 flex items-center justify-between">
-          <div>
-            <h2 class="text-xl font-bold">Client Databases</h2>
-            <p class="text-sm text-gray-400 mt-1">Manage your PocketBase instances</p>
-          </div>
-          <button @click="showCreateModal = true" 
-                  class="px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-xl font-medium transition-colors flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            New Database
-          </button>
-        </div>
-
-        <!-- Project Stats -->
-        <div class="grid grid-cols-3 border-b border-surface-700">
-          <div class="p-4 text-center border-r border-surface-700">
-            <div class="text-2xl font-bold text-brand-400" x-text="projects.length">0</div>
-            <div class="text-sm text-gray-400">Total Projects</div>
-          </div>
-          <div class="p-4 text-center border-r border-surface-700">
-            <div class="text-2xl font-bold text-green-400" x-text="projects.filter(p => p.status === 'running').length">0</div>
-            <div class="text-sm text-gray-400">Running</div>
-          </div>
-          <div class="p-4 text-center">
-            <div class="text-2xl font-bold text-gray-400" x-text="projects.filter(p => p.status === 'stopped').length">0</div>
-            <div class="text-sm text-gray-400">Stopped</div>
-          </div>
-        </div>
-
-        <!-- Projects List -->
-        <div class="divide-y divide-surface-700">
-          <template x-if="projects.length === 0">
-            <div class="p-12 text-center">
-              <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-surface-700 flex items-center justify-center">
-                <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
-                </svg>
+          <!-- Alerts -->
+          <template x-if="alerts.length > 0">
+            <div class="mb-8">
+              <h2 class="text-lg font-semibold mb-4">Active Alerts</h2>
+              <div class="space-y-3">
+                <template x-for="alert in alerts.filter(a => !a.acknowledged)" :key="alert.id">
+                  <div 
+                    :class="{
+                      'border-red-500/30 bg-red-500/5': alert.severity === 'error',
+                      'border-yellow-500/30 bg-yellow-500/5': alert.severity === 'warning',
+                      'border-blue-500/30 bg-blue-500/5': alert.severity === 'info'
+                    }"
+                    class="rounded-xl p-4 border flex items-start gap-4"
+                  >
+                    <div 
+                      :class="{
+                        'bg-red-500/10 text-red-400': alert.severity === 'error',
+                        'bg-yellow-500/10 text-yellow-400': alert.severity === 'warning',
+                        'bg-blue-500/10 text-blue-400': alert.severity === 'info'
+                      }"
+                      class="p-2 rounded-lg shrink-0"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                      </svg>
+                    </div>
+                    <div class="flex-1">
+                      <p class="text-white" x-text="alert.message"></p>
+                      <p class="text-sm text-gray-500 mt-1" x-text="new Date(alert.timestamp).toLocaleString()"></p>
+                    </div>
+                    <button 
+                      @click="acknowledgeAlert(alert.id)"
+                      class="text-gray-400 hover:text-white transition-colors"
+                      title="Dismiss"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+                </template>
               </div>
-              <h3 class="text-lg font-medium mb-2">No databases yet</h3>
-              <p class="text-gray-400 mb-4">Create your first client database to get started</p>
-              <button @click="showCreateModal = true" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 rounded-xl font-medium transition-colors">
-                Create Database
-              </button>
             </div>
           </template>
-
-          <template x-for="project in projects" :key="project.id">
-            <div class="p-4 hover:bg-surface-700/50 transition-colors">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                  <!-- Status indicator -->
-                  <div class="w-10 h-10 rounded-xl flex items-center justify-center"
-                       :class="{
-                         'bg-green-500/20': project.status === 'running',
-                         'bg-gray-500/20': project.status === 'stopped',
-                         'bg-red-500/20': project.status === 'error',
-                         'bg-yellow-500/20': project.status === 'creating'
-                       }">
-                    <span class="w-3 h-3 rounded-full"
-                          :class="{
-                            'bg-green-500 animate-pulse': project.status === 'running',
-                            'bg-gray-500': project.status === 'stopped',
-                            'bg-red-500': project.status === 'error',
-                            'bg-yellow-500 animate-pulse': project.status === 'creating'
-                          }"></span>
+          
+          <!-- Projects Section -->
+          <div class="mb-8">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-lg font-semibold">Client Databases</h2>
+              <button 
+                @click="showCreateModal = true"
+                class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium flex items-center gap-2 transition-colors"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                New Database
+              </button>
+            </div>
+            
+            <template x-if="projects.length === 0">
+              <div class="bg-surface-800 rounded-2xl p-12 border border-surface-700 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-surface-700 flex items-center justify-center mx-auto mb-4">
+                  <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                  </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-200 mb-2">No databases yet</h3>
+                <p class="text-gray-500 mb-6">Create your first client database to get started</p>
+                <button 
+                  @click="showCreateModal = true"
+                  class="px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium transition-colors"
+                >
+                  Create Database
+                </button>
+              </div>
+            </template>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <template x-for="project in projects" :key="project.id">
+                <div class="bg-surface-800 rounded-2xl p-6 border border-surface-700 card-hover">
+                  <div class="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 class="text-lg font-semibold text-white" x-text="project.name"></h3>
+                      <p class="text-sm text-gray-500" x-text="project.slug"></p>
+                    </div>
+                    <div 
+                      :class="{
+                        'bg-brand-500/10 text-brand-400': project.status === 'running',
+                        'bg-gray-500/10 text-gray-400': project.status === 'stopped',
+                        'bg-yellow-500/10 text-yellow-400': project.status === 'starting'
+                      }"
+                      class="px-3 py-1 rounded-full text-xs font-medium capitalize"
+                      x-text="project.status"
+                    ></div>
                   </div>
                   
-                  <div>
-                    <div class="font-semibold" x-text="project.name">Project Name</div>
-                    <div class="text-sm text-gray-400 font-mono" x-text="project.slug + '.' + baseDomain">slug.domain.com</div>
+                  <div class="space-y-2 text-sm text-gray-400 mb-4">
+                    <template x-if="project.clientName">
+                      <p><span class="text-gray-500">Client:</span> <span x-text="project.clientName"></span></p>
+                    </template>
+                    <p><span class="text-gray-500">Port:</span> <span x-text="project.port"></span></p>
+                    <p><span class="text-gray-500">Created:</span> <span x-text="new Date(project.createdAt).toLocaleDateString()"></span></p>
                   </div>
-                </div>
-
-                <div class="flex items-center gap-4">
-                  <!-- Client info -->
-                  <div class="text-right hidden md:block">
-                    <div class="text-sm" x-text="project.clientName || 'No client'">Client</div>
-                    <div class="text-xs text-gray-500" x-text="formatDate(project.createdAt)">Date</div>
-                  </div>
-
-                  <!-- Action buttons -->
+                  
                   <div class="flex items-center gap-2">
-                    <!-- Open PocketBase Admin -->
-                    <a :href="'https://' + project.slug + '.' + baseDomain + '/_/'" target="_blank"
-                       class="p-2 rounded-lg bg-surface-600 hover:bg-surface-500 transition-colors" title="Open Admin">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                      </svg>
+                    <a 
+                      :href="project.domain ? 'https://' + project.domain + '/_/' : '#'"
+                      target="_blank"
+                      class="flex-1 px-3 py-2 rounded-lg bg-surface-700 hover:bg-surface-600 text-center text-sm font-medium transition-colors"
+                      :class="{ 'opacity-50 pointer-events-none': project.status !== 'running' }"
+                    >
+                      Open Admin
                     </a>
-
-                    <!-- Start/Stop -->
-                    <button x-show="project.status === 'stopped'" @click="startProject(project.id)"
-                            class="p-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 transition-colors" title="Start">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                      </svg>
-                    </button>
-                    <button x-show="project.status === 'running'" @click="stopProject(project.id)"
-                            class="p-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 transition-colors" title="Stop">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
-                      </svg>
-                    </button>
-
-                    <!-- Delete -->
-                    <button @click="confirmDelete(project)" 
-                            class="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors" title="Delete">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <template x-if="project.status === 'stopped'">
+                      <button 
+                        @click="startProject(project.id)"
+                        class="p-2 rounded-lg bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 transition-colors"
+                        title="Start"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                      </button>
+                    </template>
+                    <template x-if="project.status === 'running'">
+                      <button 
+                        @click="stopProject(project.id)"
+                        class="p-2 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 transition-colors"
+                        title="Stop"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                        </svg>
+                      </button>
+                    </template>
+                    <button 
+                      @click="confirmDelete(project)"
+                      class="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                      title="Delete"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                       </svg>
                     </button>
                   </div>
                 </div>
-              </div>
-
-              <!-- Container metrics (expandable) -->
-              <template x-if="getContainerMetrics(project.id)">
-                <div class="mt-4 pt-4 border-t border-surface-700 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span class="text-gray-400">Memory:</span>
-                    <span class="ml-2 font-mono" x-text="getContainerMetrics(project.id)?.memoryUsage">0 MB</span>
-                  </div>
-                  <div>
-                    <span class="text-gray-400">CPU:</span>
-                    <span class="ml-2 font-mono" x-text="getContainerMetrics(project.id)?.cpuUsage">0%</span>
-                  </div>
-                  <div>
-                    <span class="text-gray-400">Uptime:</span>
-                    <span class="ml-2 font-mono" x-text="getContainerMetrics(project.id)?.uptime">N/A</span>
-                  </div>
-                  <div>
-                    <span class="text-gray-400">Backups:</span>
-                    <span class="ml-2 font-mono" x-text="getBackupInfo(project.id)?.backupCount || 0">0</span>
-                  </div>
-                </div>
               </template>
             </div>
-          </template>
-        </div>
-      </div>
-
-      <!-- Backup Status Section -->
-      <div class="bg-surface-800 rounded-2xl border border-surface-700">
-        <div class="p-6 border-b border-surface-700">
-          <h2 class="text-xl font-bold">Backup Status</h2>
-          <p class="text-sm text-gray-400 mt-1">Monitor backup health across all databases</p>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead>
-              <tr class="text-left text-sm text-gray-400 border-b border-surface-700">
-                <th class="p-4 font-medium">Database</th>
-                <th class="p-4 font-medium">Last Backup</th>
-                <th class="p-4 font-medium">Backup Count</th>
-                <th class="p-4 font-medium">Total Size</th>
-                <th class="p-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-surface-700">
-              <template x-if="backups.length === 0">
-                <tr>
-                  <td colspan="5" class="p-8 text-center text-gray-400">No backup data available</td>
-                </tr>
-              </template>
-              <template x-for="backup in backups" :key="backup.projectId">
-                <tr class="hover:bg-surface-700/50">
-                  <td class="p-4 font-mono text-sm" x-text="backup.projectSlug">slug</td>
-                  <td class="p-4">
-                    <span x-show="backup.lastBackup" x-text="formatDateTime(backup.lastBackup)">Never</span>
-                    <span x-show="!backup.lastBackup" class="text-yellow-500">Never</span>
-                  </td>
-                  <td class="p-4" x-text="backup.backupCount">0</td>
-                  <td class="p-4" x-text="backup.totalBackupSize">0 B</td>
-                  <td class="p-4">
-                    <button @click="createBackup(backup.projectId)"
-                            class="px-3 py-1.5 text-sm bg-surface-600 hover:bg-surface-500 rounded-lg transition-colors">
-                      Backup Now
-                    </button>
-                  </td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </main>
-
-    <!-- Create Project Modal -->
-    <div x-show="showCreateModal" x-cloak
-         class="fixed inset-0 z-50 flex items-center justify-center p-4"
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0">
-      <!-- Backdrop -->
-      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showCreateModal = false"></div>
-      
-      <!-- Modal -->
-      <div class="relative bg-surface-800 rounded-2xl border border-surface-700 w-full max-w-lg shadow-2xl"
-           x-transition:enter="transition ease-out duration-200"
-           x-transition:enter-start="opacity-0 scale-95"
-           x-transition:enter-end="opacity-100 scale-100">
-        <div class="p-6 border-b border-surface-700">
-          <h3 class="text-xl font-bold">Create New Database</h3>
-          <p class="text-sm text-gray-400 mt-1">Set up a new PocketBase instance for your client</p>
-        </div>
-
-        <form @submit.prevent="createProject()" class="p-6 space-y-4">
-          <div>
-            <label class="block text-sm font-medium mb-2">Project Name *</label>
-            <input type="text" x-model="newProject.name" required
-                   class="w-full px-4 py-3 bg-surface-700 border border-surface-600 rounded-xl focus:outline-none focus:border-brand-500 transition-colors"
-                   placeholder="My Awesome Project">
           </div>
-
+        </main>
+      </div>
+    </template>
+    
+    <!-- Create Modal -->
+    <div x-show="showCreateModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/60" @click="showCreateModal = false"></div>
+      <div class="relative bg-surface-800 rounded-2xl p-8 w-full max-w-lg border border-surface-700">
+        <h2 class="text-xl font-bold mb-6">Create New Database</h2>
+        
+        <form @submit.prevent="createProject()" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium mb-2">Slug (optional)</label>
-            <div class="flex items-center">
-              <input type="text" x-model="newProject.slug"
-                     class="flex-1 px-4 py-3 bg-surface-700 border border-surface-600 rounded-l-xl focus:outline-none focus:border-brand-500 transition-colors font-mono"
-                     placeholder="my-awesome-project">
-              <span class="px-4 py-3 bg-surface-600 border border-surface-600 rounded-r-xl text-gray-400" x-text="'.' + baseDomain">.domain.com</span>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Project Name *</label>
+            <input 
+              type="text" 
+              x-model="newProject.name"
+              placeholder="My Awesome Project"
+              class="w-full px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              required
+            >
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Slug (optional)</label>
+            <div class="flex items-center gap-2">
+              <input 
+                type="text" 
+                x-model="newProject.slug"
+                placeholder="my-awesome-project"
+                class="flex-1 px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              >
             </div>
             <p class="text-xs text-gray-500 mt-1">Leave empty to auto-generate from name</p>
           </div>
-
+          
           <div>
-            <label class="block text-sm font-medium mb-2">Client Name</label>
-            <input type="text" x-model="newProject.clientName"
-                   class="w-full px-4 py-3 bg-surface-700 border border-surface-600 rounded-xl focus:outline-none focus:border-brand-500 transition-colors"
-                   placeholder="Acme Corporation">
+            <label class="block text-sm font-medium text-gray-300 mb-2">Client Name</label>
+            <input 
+              type="text" 
+              x-model="newProject.clientName"
+              placeholder="Acme Corporation"
+              class="w-full px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+            >
           </div>
-
+          
           <div>
-            <label class="block text-sm font-medium mb-2">Client Email</label>
-            <input type="email" x-model="newProject.clientEmail"
-                   class="w-full px-4 py-3 bg-surface-700 border border-surface-600 rounded-xl focus:outline-none focus:border-brand-500 transition-colors"
-                   placeholder="client@example.com">
+            <label class="block text-sm font-medium text-gray-300 mb-2">Client Email</label>
+            <input 
+              type="email" 
+              x-model="newProject.clientEmail"
+              placeholder="client@example.com"
+              class="w-full px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+            >
           </div>
-
+          
           <div>
-            <label class="block text-sm font-medium mb-2">Description</label>
-            <textarea x-model="newProject.description" rows="3"
-                      class="w-full px-4 py-3 bg-surface-700 border border-surface-600 rounded-xl focus:outline-none focus:border-brand-500 transition-colors resize-none"
-                      placeholder="Brief description of this project..."></textarea>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Description</label>
+            <textarea 
+              x-model="newProject.description"
+              placeholder="Brief description of this project..."
+              rows="2"
+              class="w-full px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 resize-none"
+            ></textarea>
           </div>
-
+          
           <div class="flex justify-end gap-3 pt-4">
-            <button type="button" @click="showCreateModal = false; resetNewProject()"
-                    class="px-4 py-2 bg-surface-600 hover:bg-surface-500 rounded-xl font-medium transition-colors">
+            <button 
+              type="button" 
+              @click="showCreateModal = false; resetNewProject()"
+              class="px-6 py-3 rounded-xl bg-surface-700 hover:bg-surface-600 text-gray-300 font-medium transition-colors"
+            >
               Cancel
             </button>
-            <button type="submit" :disabled="creating"
-                    class="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-medium transition-colors flex items-center gap-2">
-              <svg x-show="creating" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span x-text="creating ? 'Creating...' : 'Create Database'">Create Database</span>
+            <button 
+              type="submit"
+              :disabled="creating"
+              class="px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              <template x-if="creating">
+                <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </template>
+              <span x-text="creating ? 'Creating...' : 'Create Database'"></span>
             </button>
           </div>
         </form>
       </div>
     </div>
-
+    
     <!-- Delete Confirmation Modal -->
-    <div x-show="showDeleteModal" x-cloak
-         class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showDeleteModal = false"></div>
-      
-      <div class="relative bg-surface-800 rounded-2xl border border-red-500/30 w-full max-w-md shadow-2xl glow-red">
-        <div class="p-6">
-          <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-red-500/20 flex items-center justify-center">
-            <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    <div x-show="showDeleteModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/60" @click="showDeleteModal = false"></div>
+      <div class="relative bg-surface-800 rounded-2xl p-8 w-full max-w-md border border-surface-700">
+        <div class="text-center">
+          <div class="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
             </svg>
           </div>
-          <h3 class="text-xl font-bold text-center mb-2">Delete Database?</h3>
-          <p class="text-gray-400 text-center mb-2">
-            Are you sure you want to delete <span class="font-semibold text-white" x-text="projectToDelete?.name">Project</span>?
+          
+          <h3 class="text-xl font-bold text-white mb-2">Delete Database?</h3>
+          <p class="text-gray-400 mb-2">
+            Are you sure you want to delete <span class="text-white font-medium" x-text="projectToDelete?.name"></span>?
           </p>
-          <p class="text-red-400 text-sm text-center mb-6">This action cannot be undone. All data will be permanently deleted.</p>
-
-          <div class="flex gap-3">
-            <button @click="showDeleteModal = false; projectToDelete = null"
-                    class="flex-1 px-4 py-2 bg-surface-600 hover:bg-surface-500 rounded-xl font-medium transition-colors">
+          <p class="text-sm text-red-400 mb-6">This action cannot be undone. All data will be permanently deleted.</p>
+          
+          <div class="flex justify-center gap-3">
+            <button 
+              @click="showDeleteModal = false; projectToDelete = null"
+              class="px-6 py-3 rounded-xl bg-surface-700 hover:bg-surface-600 text-gray-300 font-medium transition-colors"
+            >
               Cancel
             </button>
-            <button @click="deleteProject()"
-                    :disabled="deleting"
-                    class="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 rounded-xl font-medium transition-colors">
-              <span x-text="deleting ? 'Deleting...' : 'Delete'">Delete</span>
+            <button 
+              @click="deleteProject()"
+              :disabled="deleting"
+              class="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              <template x-if="deleting">
+                <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </template>
+              <span x-text="deleting ? 'Deleting...' : 'Delete'"></span>
             </button>
           </div>
         </div>
       </div>
     </div>
-
+    
     <!-- Toast Notification -->
-    <div x-show="toast.show" x-cloak
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 translate-y-2"
-         x-transition:enter-end="opacity-100 translate-y-0"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100 translate-y-0"
-         x-transition:leave-end="opacity-0 translate-y-2"
-         class="fixed bottom-6 right-6 z-50">
-      <div class="px-4 py-3 rounded-xl shadow-lg flex items-center gap-3"
-           :class="{
-             'bg-green-500/20 border border-green-500/30 text-green-400': toast.type === 'success',
-             'bg-red-500/20 border border-red-500/30 text-red-400': toast.type === 'error',
-             'bg-blue-500/20 border border-blue-500/30 text-blue-400': toast.type === 'info'
-           }">
-        <svg x-show="toast.type === 'success'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        <svg x-show="toast.type === 'error'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-        <span x-text="toast.message">Message</span>
+    <div 
+      x-show="toast.show" 
+      x-transition:enter="transition ease-out duration-300"
+      x-transition:enter-start="opacity-0 translate-y-4"
+      x-transition:enter-end="opacity-100 translate-y-0"
+      x-transition:leave="transition ease-in duration-200"
+      x-transition:leave-start="opacity-100 translate-y-0"
+      x-transition:leave-end="opacity-0 translate-y-4"
+      class="fixed bottom-6 right-6 z-50"
+    >
+      <div 
+        :class="{
+          'bg-brand-500/10 border-brand-500/30 text-brand-400': toast.type === 'success',
+          'bg-red-500/10 border-red-500/30 text-red-400': toast.type === 'error'
+        }"
+        class="px-6 py-4 rounded-xl border flex items-center gap-3"
+      >
+        <template x-if="toast.type === 'success'">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </template>
+        <template x-if="toast.type === 'error'">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </template>
+        <span x-text="toast.message"></span>
       </div>
     </div>
   </div>
@@ -563,16 +621,28 @@
   <script>
     function dashboard() {
       return {
-        // State
-        loading: false,
+        // Auth state
+        isAuthenticated: false,
+        loading: true,
+        token: null,
+        user: null,
+        
+        // Login form
+        loginForm: {
+          email: '',
+          password: ''
+        },
+        loginError: '',
+        loggingIn: false,
+        
+        // Dashboard state
+        refreshing: false,
         systemStatus: 'healthy',
         system: {},
-        projects: [],
         containers: [],
         backups: [],
         alerts: [],
-        baseDomain: 'db.oceannet.dev',
-        apiKey: 'dev-api-key', // This should be configured properly in production
+        projects: [],
         
         // Modals
         showCreateModal: false,
@@ -597,16 +667,119 @@
           message: ''
         },
 
-        // Initialize
+        // Initialize - check for stored token
         async init() {
-          await this.refresh();
-          // Auto-refresh every 30 seconds
-          setInterval(() => this.refresh(), 30000);
+          // Check localStorage for existing token
+          const storedToken = localStorage.getItem('pbm_token');
+          const storedUser = localStorage.getItem('pbm_user');
+          
+          if (storedToken && storedUser) {
+            // Verify the token is still valid
+            try {
+              const res = await fetch('/api/auth/verify', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${storedToken}`
+                }
+              });
+              
+              const data = await res.json();
+              
+              if (data.success) {
+                this.token = storedToken;
+                this.user = JSON.parse(storedUser);
+                this.isAuthenticated = true;
+                this.loading = false;
+                await this.refresh();
+                // Auto-refresh every 30 seconds
+                setInterval(() => this.refresh(), 30000);
+                return;
+              }
+            } catch (e) {
+              console.error('Token verification failed:', e);
+            }
+            
+            // Token invalid, clear storage
+            localStorage.removeItem('pbm_token');
+            localStorage.removeItem('pbm_user');
+          }
+          
+          this.loading = false;
+        },
+
+        // Login
+        async login() {
+          this.loggingIn = true;
+          this.loginError = '';
+          
+          try {
+            const res = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                email: this.loginForm.email,
+                password: this.loginForm.password
+              })
+            });
+            
+            const data = await res.json();
+            
+            if (data.success) {
+              // Store token in localStorage
+              localStorage.setItem('pbm_token', data.data.token);
+              localStorage.setItem('pbm_user', JSON.stringify(data.data.user));
+              
+              this.token = data.data.token;
+              this.user = data.data.user;
+              this.isAuthenticated = true;
+              
+              // Clear login form
+              this.loginForm = { email: '', password: '' };
+              
+              // Load dashboard data
+              await this.refresh();
+              
+              // Start auto-refresh
+              setInterval(() => this.refresh(), 30000);
+              
+              this.showToast('success', 'Welcome back!');
+            } else {
+              this.loginError = data.error || 'Login failed';
+            }
+          } catch (error) {
+            console.error('Login error:', error);
+            this.loginError = 'Connection error. Please try again.';
+          } finally {
+            this.loggingIn = false;
+          }
+        },
+
+        // Logout
+        logout() {
+          localStorage.removeItem('pbm_token');
+          localStorage.removeItem('pbm_user');
+          this.token = null;
+          this.user = null;
+          this.isAuthenticated = false;
+          this.projects = [];
+          this.system = {};
+          this.containers = [];
+          this.alerts = [];
+        },
+
+        // Get auth headers
+        getAuthHeaders() {
+          return {
+            'Authorization': `Bearer ${this.token}`,
+            'Content-Type': 'application/json'
+          };
         },
 
         // Fetch all data
         async refresh() {
-          this.loading = true;
+          this.refreshing = true;
           try {
             // Fetch monitoring data
             const monitoringRes = await fetch('/api/monitoring');
@@ -621,7 +794,7 @@
 
             // Fetch projects
             const projectsRes = await fetch('/api/projects', {
-              headers: { 'x-api-key': this.apiKey }
+              headers: this.getAuthHeaders()
             });
             const projectsData = await projectsRes.json();
             
@@ -642,9 +815,8 @@
             }
           } catch (error) {
             console.error('Failed to refresh:', error);
-            this.showToast('error', 'Failed to fetch data');
           } finally {
-            this.loading = false;
+            this.refreshing = false;
           }
         },
 
@@ -662,10 +834,7 @@
 
             const res = await fetch('/api/projects', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': this.apiKey
-              },
+              headers: this.getAuthHeaders(),
               body: JSON.stringify(payload)
             });
 
@@ -700,7 +869,7 @@
           try {
             const res = await fetch(`/api/projects/${this.projectToDelete.id}`, {
               method: 'DELETE',
-              headers: { 'x-api-key': this.apiKey }
+              headers: this.getAuthHeaders()
             });
 
             const data = await res.json();
@@ -726,7 +895,7 @@
           try {
             const res = await fetch(`/api/projects/${projectId}/start`, {
               method: 'POST',
-              headers: { 'x-api-key': this.apiKey }
+              headers: this.getAuthHeaders()
             });
 
             const data = await res.json();
@@ -748,7 +917,7 @@
           try {
             const res = await fetch(`/api/projects/${projectId}/stop`, {
               method: 'POST',
-              headers: { 'x-api-key': this.apiKey }
+              headers: this.getAuthHeaders()
             });
 
             const data = await res.json();
@@ -765,41 +934,20 @@
           }
         },
 
-        // Create backup
-        async createBackup(projectId) {
-          try {
-            const res = await fetch(`/api/projects/${projectId}/backups`, {
-              method: 'POST',
-              headers: { 'x-api-key': this.apiKey }
-            });
-
-            const data = await res.json();
-
-            if (data.success) {
-              this.showToast('success', 'Backup created successfully');
-              await this.refresh();
-            } else {
-              this.showToast('error', data.error || 'Failed to create backup');
-            }
-          } catch (error) {
-            console.error('Failed to create backup:', error);
-            this.showToast('error', 'Failed to create backup');
-          }
-        },
-
         // Acknowledge alert
         async acknowledgeAlert(alertId) {
           try {
             await fetch(`/api/monitoring/alerts/${alertId}/acknowledge`, {
-              method: 'POST'
+              method: 'POST',
+              headers: this.getAuthHeaders()
             });
-            this.alerts = this.alerts.filter(a => a.id !== alertId);
+            await this.refresh();
           } catch (error) {
             console.error('Failed to acknowledge alert:', error);
           }
         },
 
-        // Helpers
+        // Reset new project form
         resetNewProject() {
           this.newProject = {
             name: '',
@@ -810,35 +958,7 @@
           };
         },
 
-        getContainerMetrics(projectId) {
-          return this.containers.find(c => c.projectId === projectId);
-        },
-
-        getBackupInfo(projectId) {
-          return this.backups.find(b => b.projectId === projectId);
-        },
-
-        formatUptime(seconds) {
-          if (!seconds) return '0s';
-          const days = Math.floor(seconds / 86400);
-          const hours = Math.floor((seconds % 86400) / 3600);
-          const minutes = Math.floor((seconds % 3600) / 60);
-          
-          if (days > 0) return `${days}d ${hours}h`;
-          if (hours > 0) return `${hours}h ${minutes}m`;
-          return `${minutes}m`;
-        },
-
-        formatDate(date) {
-          if (!date) return 'N/A';
-          return new Date(date).toLocaleDateString();
-        },
-
-        formatDateTime(date) {
-          if (!date) return 'N/A';
-          return new Date(date).toLocaleString();
-        },
-
+        // Show toast notification
         showToast(type, message) {
           this.toast = { show: true, type, message };
           setTimeout(() => {
@@ -850,4 +970,3 @@
   </script>
 </body>
 </html>
-
