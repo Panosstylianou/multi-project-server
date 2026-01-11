@@ -31,6 +31,9 @@ RUN npm ci --only=production
 # Copy built application
 COPY --from=builder /app/dist ./dist
 
+# Copy dashboard static files
+COPY dashboard/ ./dashboard/
+
 # Create data directories
 RUN mkdir -p /app/data /app/backups
 

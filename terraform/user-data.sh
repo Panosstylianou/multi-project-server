@@ -208,11 +208,13 @@ SERVICE_EOF
 systemctl daemon-reload
 systemctl enable pocketbase-manager
 
-# Set up automatic backup cron
+# Set up automatic backup cron (ensure cron directory exists)
+mkdir -p /etc/cron.d
 cat > /etc/cron.d/pocketbase-backup << 'CRON_EOF'
 # Daily backup at 3 AM
 0 3 * * * root /opt/pocketbase-manager/backup.sh >> /var/log/pocketbase-backup.log 2>&1
 CRON_EOF
+chmod 644 /etc/cron.d/pocketbase-backup
 
 # Create backup script
 cat > /opt/pocketbase-manager/backup.sh << 'BACKUP_EOF'
