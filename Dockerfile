@@ -31,7 +31,7 @@ RUN npm ci --only=production
 # Copy built application
 COPY --from=builder /app/dist ./dist
 
-# Copy dashboard static files
+# Copy dashboard static files (v2 - trigger rebuild)
 COPY dashboard/ ./dashboard/
 
 # Create data directories
