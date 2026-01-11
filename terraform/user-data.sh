@@ -8,12 +8,16 @@ echo "Starting user-data script at $(date)"
 # Update system
 dnf update -y
 
-# Install Docker
-dnf install -y docker git
+# Install Docker and SSM Agent
+dnf install -y docker git amazon-ssm-agent
 
 # Start and enable Docker
 systemctl start docker
 systemctl enable docker
+
+# Start and enable SSM Agent (for GitHub Actions deployment)
+systemctl start amazon-ssm-agent
+systemctl enable amazon-ssm-agent
 
 # Add ec2-user to docker group
 usermod -aG docker ec2-user
