@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import fs from 'fs/promises';
 import path from 'path';
 import { config } from '../config/index.js';
@@ -32,7 +32,6 @@ class AuthService {
   private storePath: string;
   private store: AdminStore = { users: [], initialized: false };
   private jwtSecret: string;
-  private jwtExpiresIn: string = '7d'; // Token valid for 7 days
 
   constructor() {
     this.storePath = path.join(config.dataDir, 'admin.json');
@@ -119,7 +118,8 @@ class AuthService {
       email: user.email,
     };
     
-    const token = jwt.sign(payload, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
+    const signOptions: SignOptions = { expiresIn: '7d' };
+    const token = jwt.sign(payload, this.jwtSecret, signOptions);
     
     logger.info(`User logged in: ${email}`);
     
