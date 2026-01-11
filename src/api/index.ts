@@ -32,19 +32,14 @@ export function createServer() {
     res.redirect('/dashboard');
   });
 
-  // Health endpoints (no auth required)
+  // Public endpoints (no auth required)
   app.use('/api/health', healthRouter);
-
-  // Monitoring endpoints (no auth required for dashboard access)
   app.use('/api/monitoring', monitoringRouter);
 
-  // API key authentication for other routes
-  app.use('/api', apiKeyAuth);
+  // Protected API routes (auth required)
+  app.use('/api/projects', apiKeyAuth, projectsRouter);
 
-  // API routes
-  app.use('/api/projects', projectsRouter);
-
-  // API documentation endpoint
+  // API documentation endpoint (public)
   app.get('/api/docs', (req, res) => {
     res.json({
       endpoints: {
