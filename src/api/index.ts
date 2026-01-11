@@ -1,12 +1,19 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { config } from '../config/index.js';
 import { createChildLogger } from '../utils/logger.js';
 import { apiKeyAuth, requestLogger, errorHandler } from './middleware/auth.js';
 import projectsRouter from './routes/projects.js';
 import healthRouter from './routes/health.js';
+import monitoringRouter from './routes/monitoring.js';
 
 const logger = createChildLogger('api');
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export function createServer() {
   const app = express();
@@ -16,8 +23,20 @@ export function createServer() {
   app.use(express.json());
   app.use(requestLogger);
 
+  // Serve static dashboard files
+  const dashboardPath = path.join(__dirname, '../../dashboard');
+  app.use('/dashboard', express.static(dashboardPath));
+
+  // Redirect root to dashboard
+  app.get('/', (req, res) => {
+    res.redirect('/dashboard');
+  });
+
   // Health endpoints (no auth required)
   app.use('/api/health', healthRouter);
+
+  // Monitoring endpoints (no auth required for dashboard access)
+  app.use('/api/monitoring', monitoringRouter);
 
   // API key authentication for other routes
   app.use('/api', apiKeyAuth);
@@ -25,23 +44,22 @@ export function createServer() {
   // API routes
   app.use('/api/projects', projectsRouter);
 
-  // Root endpoint
-  app.get('/', (req, res) => {
-    res.json({
-      name: 'PocketBase Multi-Project Server',
-      version: '1.0.0',
-      docs: '/api/docs',
-      health: '/api/health',
-    });
-  });
-
   // API documentation endpoint
   app.get('/api/docs', (req, res) => {
     res.json({
       endpoints: {
+        // Health
         'GET /api/health': 'Health check',
         'GET /api/health/ready': 'Readiness probe',
         'GET /api/health/live': 'Liveness probe',
+        // Monitoring
+        'GET /api/monitoring': 'Full monitoring data',
+        'GET /api/monitoring/system': 'System metrics',
+        'GET /api/monitoring/containers': 'Container metrics',
+        'GET /api/monitoring/backups': 'Backup status',
+        'GET /api/monitoring/alerts': 'All alerts',
+        'POST /api/monitoring/alerts/:id/acknowledge': 'Acknowledge alert',
+        // Projects
         'GET /api/projects': 'List all projects',
         'GET /api/projects/stats': 'Get statistics',
         'POST /api/projects': 'Create a new project',
@@ -58,7 +76,11 @@ export function createServer() {
       },
       authentication: {
         header: 'x-api-key',
-        description: 'API key required for all /api/* endpoints except health checks',
+        description: 'API key required for all /api/projects/* endpoints. Monitoring and health endpoints are public.',
+      },
+      dashboard: {
+        url: '/dashboard',
+        description: 'Web dashboard for monitoring and management',
       },
     });
   });
@@ -75,9 +97,9 @@ export async function startServer() {
   return new Promise<void>((resolve) => {
     app.listen(config.port, config.host, () => {
       logger.info(`Server running at http://${config.host}:${config.port}`);
+      logger.info(`Dashboard available at http://${config.host}:${config.port}/dashboard`);
       logger.info(`API documentation at http://${config.host}:${config.port}/api/docs`);
       resolve();
     });
   });
 }
-

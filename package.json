@@ -1,6 +1,7 @@
 {
   "name": "pocketbase-multi-project-server",
   "version": "1.0.0",
+  "type": "module",
   "description": "Multi-tenant PocketBase instance manager for software development agencies",
   "main": "dist/index.js",
   "bin": {

@@ -1,7 +1,10 @@
 import pino from 'pino';
 import { config } from '../config/index.js';
 
-export const logger = pino({
+// Use pino.pino for ESM compatibility
+const createLogger = pino.pino || pino;
+
+export const logger = createLogger({
   level: config.nodeEnv === 'production' ? 'info' : 'debug',
   transport:
     config.nodeEnv !== 'production'
@@ -17,4 +20,3 @@ export const logger = pino({
 });
 
 export const createChildLogger = (name: string) => logger.child({ module: name });
-

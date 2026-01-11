@@ -105,3 +105,69 @@ export interface HealthStatus {
   };
 }
 
+// Enhanced monitoring types
+export interface SystemMetrics {
+  cpu: {
+    usage: number;
+    cores: number;
+  };
+  memory: {
+    total: string;
+    used: string;
+    free: string;
+    usagePercent: number;
+  };
+  disk: {
+    total: string;
+    used: string;
+    free: string;
+    usagePercent: number;
+  };
+  uptime: number;
+  nodeVersion: string;
+  platform: string;
+}
+
+export interface ContainerMetrics {
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  containerName: string;
+  status: string;
+  state: string;
+  memoryUsage: string;
+  memoryLimit: string;
+  memoryPercent: number;
+  cpuUsage: string;
+  networkRx: string;
+  networkTx: string;
+  uptime: string;
+  restartCount: number;
+  healthStatus: 'healthy' | 'unhealthy' | 'starting' | 'none';
+}
+
+export interface BackupStatus {
+  projectId: string;
+  projectSlug: string;
+  lastBackup: Date | null;
+  backupCount: number;
+  totalBackupSize: string;
+  oldestBackup: Date | null;
+}
+
+export interface MonitoringData {
+  timestamp: Date;
+  system: SystemMetrics;
+  containers: ContainerMetrics[];
+  backups: BackupStatus[];
+  alerts: Alert[];
+}
+
+export interface Alert {
+  id: string;
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  message: string;
+  source: string;
+  timestamp: Date;
+  acknowledged: boolean;
+}

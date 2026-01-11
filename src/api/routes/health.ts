@@ -32,7 +32,7 @@ router.get('/', async (req: Request, res: Response) => {
       success: true,
       data: health,
     });
-  } catch (error) {
+  } catch {
     res.status(503).json({
       success: false,
       data: {
