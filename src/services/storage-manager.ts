@@ -43,7 +43,7 @@ export class StorageManager {
       this.metadata = JSON.parse(data);
       logger.debug(`Loaded ${Object.keys(this.metadata.projects).length} projects from metadata`);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if ((error as { code?: string }).code === 'ENOENT') {
         logger.info('No existing metadata found, creating new');
         await this.saveMetadata();
       } else {

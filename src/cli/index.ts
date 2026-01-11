@@ -1,11 +1,11 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
 
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
 import { projectManager } from '../services/project-manager.js';
-import { logger } from '../utils/logger.js';
 
 const program = new Command();
 

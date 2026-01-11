@@ -14,7 +14,7 @@ router.get('/', async (req: Request, res: Response) => {
       success: true,
       data,
     });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch monitoring data',
@@ -33,7 +33,7 @@ router.get('/system', async (req: Request, res: Response) => {
       success: true,
       data: metrics,
     });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch system metrics',
@@ -52,7 +52,7 @@ router.get('/containers', async (req: Request, res: Response) => {
       success: true,
       data: metrics,
     });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch container metrics',
@@ -71,7 +71,7 @@ router.get('/backups', async (req: Request, res: Response) => {
       success: true,
       data: status,
     });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch backup status',
@@ -90,7 +90,7 @@ router.get('/alerts', async (req: Request, res: Response) => {
       success: true,
       data: alerts,
     });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch alerts',
@@ -116,7 +116,7 @@ router.post('/alerts/:id/acknowledge', async (req: Request, res: Response) => {
         error: 'Alert not found',
       });
     }
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({
       success: false,
       error: 'Failed to acknowledge alert',

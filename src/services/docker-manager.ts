@@ -83,7 +83,7 @@ export class DockerManager {
     logger.info(`Pulling PocketBase image: ${config.pocketbaseImage}`);
     
     return new Promise((resolve, reject) => {
-      this.docker.pull(config.pocketbaseImage, (err: Error | null, stream: NodeJS.ReadableStream) => {
+      this.docker.pull(config.pocketbaseImage, (err: Error | null, stream: import('stream').Readable) => {
         if (err) {
           reject(err);
           return;

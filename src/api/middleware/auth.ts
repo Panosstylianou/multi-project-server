@@ -66,7 +66,7 @@ export function errorHandler(
   err: Error & { statusCode?: number; status?: number },
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void {
   const statusCode = err.statusCode || err.status || 500;
 
