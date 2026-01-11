@@ -40,6 +40,22 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
 }
 
 /**
+ * API Key authentication middleware for write operations only
+ * GET requests are public, write operations (POST, PUT, PATCH, DELETE) require auth
+ * This allows the dashboard to read data without embedding API keys
+ */
+export function apiKeyAuthWriteOnly(req: Request, res: Response, next: NextFunction): void {
+  // Allow GET requests without authentication (for dashboard)
+  if (req.method === 'GET') {
+    next();
+    return;
+  }
+
+  // Require auth for write operations
+  apiKeyAuth(req, res, next);
+}
+
+/**
  * Request logging middleware
  */
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {

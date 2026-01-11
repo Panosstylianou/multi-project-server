@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../config/index.js';
 import { createChildLogger } from '../utils/logger.js';
-import { apiKeyAuth, requestLogger, errorHandler } from './middleware/auth.js';
+import { apiKeyAuthWriteOnly, requestLogger, errorHandler } from './middleware/auth.js';
 import projectsRouter from './routes/projects.js';
 import healthRouter from './routes/health.js';
 import monitoringRouter from './routes/monitoring.js';
@@ -37,8 +37,8 @@ export function createServer() {
   app.use('/api/health', healthRouter);
   app.use('/api/monitoring', monitoringRouter);
 
-  // Protected API routes (auth required)
-  app.use('/api/projects', apiKeyAuth, projectsRouter);
+  // Projects API (GET is public for dashboard, write operations require auth)
+  app.use('/api/projects', apiKeyAuthWriteOnly, projectsRouter);
 
   // API documentation endpoint (public)
   app.get('/api/docs', (req, res) => {
@@ -72,7 +72,7 @@ export function createServer() {
       },
       authentication: {
         header: 'x-api-key',
-        description: 'API key required for all /api/projects/* endpoints. Monitoring and health endpoints are public.',
+        description: 'API key required for write operations (POST, PUT, PATCH, DELETE). GET requests are public for dashboard access.',
       },
       dashboard: {
         url: '/dashboard',
