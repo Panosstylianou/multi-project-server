@@ -1,3 +1,4 @@
+// PocketBase Manager API - v1.1.0
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
