@@ -80,10 +80,10 @@ router.post('/verify', async (req: Request, res: Response) => {
       success: true,
       data: {
         valid: true,
-        user,
-      },
-    });
-  } catch (_error) {
+      user,
+    },
+  });
+  } catch {
     res.status(401).json({
       success: false,
       error: 'Token verification failed',
@@ -164,7 +164,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
       success: true,
       message: 'Password changed successfully',
     });
-  } catch (_error) {
+  } catch {
     res.status(500).json({
       success: false,
       error: 'Password change failed',
