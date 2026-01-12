@@ -146,10 +146,6 @@
               </button>
             </form>
           </div>
-          
-          <p class="text-center text-gray-500 text-sm mt-6">
-            Default credentials: admin@localhost / admin123
-          </p>
         </div>
       </div>
     </template>
@@ -222,6 +218,18 @@
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                </button>
+                
+                <!-- Settings Button -->
+                <button 
+                  @click="showPasswordModal = true" 
+                  class="p-2 rounded-lg bg-surface-700 hover:bg-surface-600 transition-colors"
+                  title="Change Password"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                   </svg>
                 </button>
                 
@@ -585,6 +593,78 @@
       </div>
     </div>
     
+    <!-- Change Password Modal -->
+    <div x-show="showPasswordModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="fixed inset-0 bg-black/60" @click="showPasswordModal = false"></div>
+      <div class="relative bg-surface-800 rounded-2xl p-8 w-full max-w-md border border-surface-700">
+        <h2 class="text-xl font-bold mb-6">Change Password</h2>
+        
+        <form @submit.prevent="changePassword()" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
+            <input 
+              type="password" 
+              x-model="passwordForm.currentPassword"
+              placeholder="••••••••"
+              class="w-full px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              required
+            >
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">New Password</label>
+            <input 
+              type="password" 
+              x-model="passwordForm.newPassword"
+              placeholder="••••••••"
+              class="w-full px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              required
+              minlength="8"
+            >
+            <p class="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
+            <input 
+              type="password" 
+              x-model="passwordForm.confirmPassword"
+              placeholder="••••••••"
+              class="w-full px-4 py-3 rounded-xl bg-surface-700 border border-surface-600 text-white placeholder-gray-500 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              required
+            >
+          </div>
+          
+          <div x-show="passwordError" class="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <span x-text="passwordError"></span>
+          </div>
+          
+          <div class="flex justify-end gap-3 pt-4">
+            <button 
+              type="button" 
+              @click="showPasswordModal = false; resetPasswordForm()"
+              class="px-6 py-3 rounded-xl bg-surface-700 hover:bg-surface-600 text-gray-300 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit"
+              :disabled="changingPassword"
+              class="px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              <template x-if="changingPassword">
+                <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </template>
+              <span x-text="changingPassword ? 'Changing...' : 'Change Password'"></span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
     <!-- Toast Notification -->
     <div 
       x-show="toast.show" 
@@ -647,6 +727,7 @@
         // Modals
         showCreateModal: false,
         showDeleteModal: false,
+        showPasswordModal: false,
         projectToDelete: null,
         
         // Form state
@@ -659,6 +740,15 @@
         },
         creating: false,
         deleting: false,
+        
+        // Password change state
+        passwordForm: {
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        },
+        passwordError: '',
+        changingPassword: false,
         
         // Toast
         toast: {
@@ -956,6 +1046,61 @@
             clientEmail: '',
             description: ''
           };
+        },
+
+        // Change password
+        async changePassword() {
+          this.passwordError = '';
+          
+          // Validate passwords match
+          if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
+            this.passwordError = 'New passwords do not match';
+            return;
+          }
+          
+          // Validate password length
+          if (this.passwordForm.newPassword.length < 8) {
+            this.passwordError = 'New password must be at least 8 characters';
+            return;
+          }
+          
+          this.changingPassword = true;
+          
+          try {
+            const res = await fetch('/api/auth/change-password', {
+              method: 'POST',
+              headers: this.getAuthHeaders(),
+              body: JSON.stringify({
+                currentPassword: this.passwordForm.currentPassword,
+                newPassword: this.passwordForm.newPassword
+              })
+            });
+            
+            const data = await res.json();
+            
+            if (data.success) {
+              this.showToast('success', 'Password changed successfully');
+              this.showPasswordModal = false;
+              this.resetPasswordForm();
+            } else {
+              this.passwordError = data.error || 'Failed to change password';
+            }
+          } catch (error) {
+            console.error('Password change error:', error);
+            this.passwordError = 'Connection error. Please try again.';
+          } finally {
+            this.changingPassword = false;
+          }
+        },
+
+        // Reset password form
+        resetPasswordForm() {
+          this.passwordForm = {
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: ''
+          };
+          this.passwordError = '';
         },
 
         // Show toast notification
