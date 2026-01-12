@@ -299,6 +299,37 @@ export class DockerManager {
       stream.on('error', reject);
     });
   }
+
+  /**
+   * Execute a command in a running container
+   */
+  async execInContainer(containerName: string, cmd: string[]): Promise<string> {
+    const container = this.docker.getContainer(containerName);
+    
+    const exec = await container.exec({
+      Cmd: cmd,
+      AttachStdout: true,
+      AttachStderr: true,
+    });
+
+    const stream = await exec.start({ Detach: false });
+    
+    return new Promise((resolve, reject) => {
+      let output = '';
+      
+      stream.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+      });
+      
+      stream.on('end', () => {
+        resolve(output);
+      });
+      
+      stream.on('error', (error: Error) => {
+        reject(error);
+      });
+    });
+  }
 }
 
 // Helper functions

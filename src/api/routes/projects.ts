@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { projectManager } from '../../services/project-manager.js';
+import { credentialsManager } from '../../services/credentials-manager.js';
 import { createChildLogger } from '../../utils/logger.js';
 import type { ProjectStatus } from '../../types/index.js';
 
@@ -336,6 +337,124 @@ router.get('/:id/test-connection', asyncHandler(async (req, res) => {
         message: 'Unable to reach database. It may not be running or the domain is not configured.',
         error: errorMessage,
       },
+    });
+  }
+}));
+
+/**
+ * GET /api/projects/:id/credentials
+ * Get stored credentials for a project
+ */
+router.get('/:id/credentials', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const project = await projectManager.getProject(id);
+
+  if (!project) {
+    res.status(404).json({
+      success: false,
+      error: 'Project not found',
+    });
+    return;
+  }
+
+  const credentials = credentialsManager.getCredentials(id);
+
+  if (!credentials) {
+    res.status(404).json({
+      success: false,
+      error: 'No credentials found for this project',
+      message: 'Admin user may not have been created yet. Create one manually or recreate the database.',
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: {
+      email: credentials.adminEmail,
+      // Don't send password in API by default for security
+      // User can view it in the dashboard details modal
+      hasPassword: true,
+      adminUrl: `https://${credentials.domain}/_/`,
+      createdAt: credentials.createdAt,
+    },
+  });
+}));
+
+/**
+ * GET /api/projects/:id/auto-login-url
+ * Generate a URL to auto-login to PocketBase admin
+ */
+router.get('/:id/auto-login-url', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const project = await projectManager.getProject(id);
+
+  if (!project) {
+    res.status(404).json({
+      success: false,
+      error: 'Project not found',
+    });
+    return;
+  }
+
+  const credentials = credentialsManager.getCredentials(id);
+
+  if (!credentials) {
+    res.status(404).json({
+      success: false,
+      error: 'No credentials found for this project',
+    });
+    return;
+  }
+
+  // For now, we'll authenticate via PocketBase API to get a token
+  // Then construct a URL that will auto-login
+  try {
+    const authResponse = await fetch(`https://${project.domain}/api/admins/auth-with-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        identity: credentials.adminEmail,
+        password: credentials.adminPassword,
+      }),
+    });
+
+    if (!authResponse.ok) {
+      res.json({
+        success: false,
+        error: 'Failed to authenticate with PocketBase',
+        message: 'Admin user may not exist or credentials are incorrect. Try logging in manually.',
+        adminUrl: `https://${project.domain}/_/`,
+      });
+      return;
+    }
+
+    const authData = await authResponse.json() as { token: string; admin: Record<string, unknown> };
+    const token = authData.token;
+
+    // PocketBase admin uses the token in localStorage
+    // We'll return a URL with the token as a query param and use JS to set it
+    const autoLoginUrl = `https://${project.domain}/_/#/auto-login?token=${token}`;
+
+    res.json({
+      success: true,
+      data: {
+        autoLoginUrl,
+        adminUrl: `https://${project.domain}/_/`,
+        token, // Include token so dashboard can set it via postMessage or redirect
+        expiresIn: '7 days', // PocketBase default token expiry
+      },
+    });
+  } catch (error) {
+    logger.warn(`Failed to generate auto-login URL for ${id}:`, error);
+    
+    res.json({
+      success: false,
+      error: 'Failed to generate auto-login URL',
+      message: 'You can login manually with your credentials',
+      adminUrl: `https://${project.domain}/_/`,
     });
   }
 }));

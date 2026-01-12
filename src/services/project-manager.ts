@@ -3,6 +3,7 @@ import { config } from '../config/index.js';
 import { createChildLogger } from '../utils/logger.js';
 import { dockerManager } from './docker-manager.js';
 import { storageManager } from './storage-manager.js';
+import { credentialsManager } from './credentials-manager.js';
 import type {
   Project,
   ProjectStatus,
@@ -32,6 +33,7 @@ export class ProjectManager {
     logger.info('Initializing project manager...');
     await dockerManager.initialize();
     await storageManager.initialize();
+    await credentialsManager.initialize();
 
     // Sync project statuses with actual container states
     await this.syncProjectStatuses();
@@ -124,6 +126,40 @@ export class ProjectManager {
       project.updatedAt = new Date();
 
       await storageManager.saveProject(project);
+
+      // Auto-create admin user with unified credentials
+      try {
+        logger.info(`Creating admin user for project: ${slug}`);
+        
+        // Use hello@oceannet.dev for unified login across all databases
+        const adminEmail = config.adminEmail;
+        const adminPassword = config.adminPassword || 'admin123';
+
+        // Wait a bit for PocketBase to fully start
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Create admin user via PocketBase CLI
+        await dockerManager.execInContainer(
+          containerResult.containerName,
+          ['/usr/local/bin/pocketbase', 'superuser', 'upsert', adminEmail, adminPassword]
+        );
+
+        // Store credentials for reference
+        await credentialsManager.storeCredentials(
+          projectId,
+          project.name,
+          slug,
+          project.domain || `${slug}.${config.baseDomain}`,
+          adminEmail,
+          adminPassword
+        );
+
+        logger.info(`Admin user created with unified credentials for: ${slug}`);
+      } catch (error) {
+        logger.warn(`Failed to create admin user for ${slug}:`, error);
+        // Don't fail the whole project creation if admin creation fails
+        // User can always create manually
+      }
 
       logger.info(`Project created successfully: ${slug} (${projectId})`);
 
@@ -232,6 +268,8 @@ export class ProjectManager {
       await storageManager.saveProject(project);
     } else {
       await storageManager.deleteProject(projectId);
+      // Also delete stored credentials
+      await credentialsManager.deleteCredentials(projectId);
     }
 
     logger.info(`Project deleted: ${project.slug}`);
