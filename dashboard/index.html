@@ -778,9 +778,9 @@ curl https://${selectedProject.domain}/api/health
 curl https://${selectedProject.domain}/api/collections/YOUR_COLLECTION/records
 
 # Create record (replace YOUR_COLLECTION)
-curl -X POST https://${selectedProject.domain}/api/collections/YOUR_COLLECTION/records \\
-  -H 'Content-Type: application/json' \\
-  -d '{\"field\": \"value\"}'`"></code></pre>
+curl -X POST https://${selectedProject.domain}/api/collections/YOUR_COLLECTION/records \\\\
+  -H 'Content-Type: application/json' \\\\
+  -d '{&quot;field&quot;: &quot;value&quot;}'`"></code></pre>
                 </div>
                 
                 <!-- Environment Variables -->
@@ -1357,18 +1357,25 @@ POCKETBASE_URL=https://${domain}`;
           await this.copyToClipboard(code, 'Code example');
         },
 
-        // Test connection
+        // Test connection (uses server-side proxy to avoid CORS)
         async testConnection(project) {
           try {
-            const response = await fetch(`https://${project.domain}/api/health`);
-            if (response.ok) {
-              this.showToast('success', 'Connection successful! Database is reachable.');
+            const response = await fetch(`/api/projects/${project.id}/test-connection`, {
+              headers: {
+                'Authorization': `Bearer ${this.token}`
+              }
+            });
+            const result = await response.json();
+            
+            if (result.success && result.data.status === 'connected') {
+              this.showToast('success', '✅ Connection successful! Database is reachable.');
             } else {
-              this.showToast('error', `Connection failed with status: ${response.status}`);
+              const message = result.data?.message || 'Connection failed';
+              this.showToast('error', `❌ ${message}`);
             }
           } catch (error) {
             console.error('Connection test failed:', error);
-            this.showToast('error', 'Connection failed. Database may not be running.');
+            this.showToast('error', '❌ Connection test failed. Please try again.');
           }
         },
 

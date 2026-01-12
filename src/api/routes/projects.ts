@@ -273,5 +273,72 @@ router.post('/:id/backups/:filename/restore', asyncHandler(async (req, res) => {
   });
 }));
 
+/**
+ * GET /api/projects/:id/test-connection
+ * Test connection to project's PocketBase instance (server-side to avoid CORS)
+ */
+router.get('/:id/test-connection', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const project = await projectManager.getProject(id);
+
+  if (!project) {
+    res.status(404).json({
+      success: false,
+      error: 'Project not found',
+    });
+    return;
+  }
+
+  try {
+    // Test connection to the PocketBase health endpoint
+    const healthUrl = `https://${project.domain}/api/health`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+    const response = await fetch(healthUrl, {
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      res.json({
+        success: true,
+        data: {
+          status: 'connected',
+          statusCode: response.status,
+          message: 'Database is reachable and responding',
+          healthData: data,
+        },
+      });
+    } else {
+      res.json({
+        success: false,
+        data: {
+          status: 'error',
+          statusCode: response.status,
+          message: `Database returned status ${response.status}`,
+        },
+      });
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.warn(`Connection test failed for project ${id}:`, errorMessage);
+
+    res.json({
+      success: false,
+      data: {
+        status: 'unreachable',
+        message: 'Unable to reach database. It may not be running or the domain is not configured.',
+        error: errorMessage,
+      },
+    });
+  }
+}));
+
 export default router;
 
