@@ -24,8 +24,12 @@ class MonitoringService {
   async getSystemMetrics(): Promise<SystemMetrics> {
     const cpus = os.cpus();
     const totalMemory = os.totalmem();
-    const freeMemory = os.freemem();
-    const usedMemory = totalMemory - freeMemory;
+    
+    // Get accurate memory usage (accounting for Linux cache/buffers)
+    const memoryStats = await this.getAccurateMemoryUsage();
+    const usedMemory = memoryStats.used;
+    const freeMemory = memoryStats.available;
+    const usagePercent = memoryStats.usagePercent;
 
     // Calculate CPU usage
     const cpuUsage = await this.calculateCpuUsage();
@@ -42,12 +46,65 @@ class MonitoringService {
         total: formatBytes(totalMemory),
         used: formatBytes(usedMemory),
         free: formatBytes(freeMemory),
-        usagePercent: Math.round((usedMemory / totalMemory) * 100),
+        usagePercent: usagePercent,
       },
       disk: diskUsage,
       uptime: os.uptime(),
       nodeVersion: process.version,
       platform: `${os.type()} ${os.release()}`,
+    };
+  }
+
+  /**
+   * Get accurate memory usage on Linux systems
+   * Accounts for buff/cache which is reclaimable
+   */
+  private async getAccurateMemoryUsage(): Promise<{
+    used: number;
+    available: number;
+    usagePercent: number;
+  }> {
+    try {
+      // Try to read /proc/meminfo for accurate Linux memory stats
+      if (os.platform() === 'linux') {
+        const meminfo = await fs.readFile('/proc/meminfo', 'utf-8');
+        const lines = meminfo.split('\n');
+        
+        let memTotal = 0;
+        let memAvailable = 0;
+        
+        for (const line of lines) {
+          if (line.startsWith('MemTotal:')) {
+            memTotal = parseInt(line.split(/\s+/)[1]) * 1024; // Convert kB to bytes
+          } else if (line.startsWith('MemAvailable:')) {
+            memAvailable = parseInt(line.split(/\s+/)[1]) * 1024; // Convert kB to bytes
+          }
+        }
+        
+        if (memTotal > 0 && memAvailable > 0) {
+          const used = memTotal - memAvailable;
+          const usagePercent = Math.round((used / memTotal) * 100);
+          
+          return {
+            used,
+            available: memAvailable,
+            usagePercent,
+          };
+        }
+      }
+    } catch (error) {
+      logger.warn('Failed to read /proc/meminfo, falling back to os.freemem()', error);
+    }
+    
+    // Fallback for non-Linux or if /proc/meminfo fails
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    const usedMemory = totalMemory - freeMemory;
+    
+    return {
+      used: usedMemory,
+      available: freeMemory,
+      usagePercent: Math.round((usedMemory / totalMemory) * 100),
     };
   }
 
