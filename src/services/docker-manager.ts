@@ -153,7 +153,7 @@ export class DockerManager {
         'traefik.enable': 'true',
         [`traefik.http.routers.${projectSlug}.rule`]: `Host(\`${projectSlug}.${config.baseDomain}\`)`,
         [`traefik.http.routers.${projectSlug}.entrypoints`]: config.useHttps ? 'websecure' : 'web',
-        [`traefik.http.services.${projectSlug}.loadbalancer.server.port`]: '8080',
+        [`traefik.http.services.${projectSlug}.loadbalancer.server.port`]: '8090',
         ...(config.useHttps && {
           [`traefik.http.routers.${projectSlug}.tls`]: 'true',
           [`traefik.http.routers.${projectSlug}.tls.certresolver`]: 'letsencrypt',
@@ -163,7 +163,7 @@ export class DockerManager {
         'PB_ENCRYPTION_KEY=' + generateEncryptionKey(),
       ],
       ExposedPorts: {
-        '8080/tcp': {},
+        '8090/tcp': {},
       },
       HostConfig: {
         Binds: [
@@ -173,7 +173,7 @@ export class DockerManager {
           `${dataPath}/pb_hooks:/pb_hooks`,
         ],
         PortBindings: {
-          '8080/tcp': [{ HostPort: port.toString() }],
+          '8090/tcp': [{ HostPort: port.toString() }],
         },
         RestartPolicy: {
           Name: 'unless-stopped',
