@@ -701,6 +701,25 @@
         
         <template x-if="selectedProject">
           <div class="space-y-6">
+            <!-- Important Notice -->
+            <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+              <div class="flex items-start space-x-3">
+                <svg class="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+                <div class="flex-1">
+                  <h4 class="text-sm font-semibold text-yellow-500 mb-1">Database Admin Required</h4>
+                  <p class="text-xs text-gray-300 leading-relaxed">
+                    Each PocketBase database is independent and requires its own admin account. 
+                    This is separate from your Manager credentials (<code class="text-yellow-400">hello@oceannet.dev</code>).
+                  </p>
+                  <p class="text-xs text-gray-400 mt-2">
+                    💡 <strong>First time setup:</strong> Create an admin user via command line or use the setup token from container logs.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
             <!-- Connection URLs -->
             <div>
               <h3 class="text-lg font-semibold mb-4 text-brand-400">Connection Information</h3>
@@ -797,6 +816,28 @@ POCKETBASE_URL=https://${selectedProject.domain}`"></code></pre>
               </div>
             </div>
             
+            <!-- Admin Setup Info -->
+            <div class="bg-surface-800/50 border border-surface-600 rounded-lg p-4">
+              <h3 class="text-sm font-semibold text-gray-300 mb-3 flex items-center">
+                <svg class="w-4 h-4 mr-2 text-brand-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"/>
+                </svg>
+                PocketBase Admin Setup
+              </h3>
+              <div class="text-xs text-gray-400 space-y-2">
+                <p class="leading-relaxed">
+                  Each database needs its own admin account to manage collections, users, and data.
+                </p>
+                <div class="bg-surface-900 rounded p-3 space-y-1.5">
+                  <p class="text-gray-300 font-medium">To create an admin user:</p>
+                  <code class="block text-xs text-brand-300 break-all">
+                    docker exec <span x-text="`pocketbase-${selectedProject.slug}`"></span> /usr/local/bin/pocketbase superuser upsert YOUR_EMAIL YOUR_PASSWORD
+                  </code>
+                  <p class="text-gray-500 italic">Run this command to create/update the admin user</p>
+                </div>
+              </div>
+            </div>
+            
             <!-- Quick Actions -->
             <div>
               <h3 class="text-lg font-semibold mb-4 text-brand-400">Quick Actions</h3>
@@ -804,14 +845,20 @@ POCKETBASE_URL=https://${selectedProject.domain}`"></code></pre>
                 <button 
                   @click="openAdminPanel(selectedProject)"
                   :disabled="selectedProject.status !== 'running'"
-                  class="flex-1 px-4 py-3 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="flex-1 px-4 py-3 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
                   Open Admin Panel
                 </button>
                 <button 
                   @click="testConnection(selectedProject)"
-                  class="flex-1 px-4 py-3 rounded-lg bg-surface-700 hover:bg-surface-600 font-medium transition-colors"
+                  class="flex-1 px-4 py-3 rounded-lg bg-surface-700 hover:bg-surface-600 font-medium transition-colors flex items-center justify-center gap-2"
                 >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
                   Test Connection
                 </button>
               </div>
