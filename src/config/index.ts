@@ -32,6 +32,7 @@ const configSchema = z.object({
   // Security
   apiKey: z.string().default('dev-api-key'),
   adminEmail: z.string().email().default('admin@localhost'),
+  adminPassword: z.string().default('admin123'),
 
   // Traefik
   traefikDashboardEnabled: z.coerce.boolean().default(true),
@@ -60,6 +61,7 @@ const rawConfig = {
   s3BackupBucket: process.env.S3_BACKUP_BUCKET,
   apiKey: process.env.API_KEY,
   adminEmail: process.env.ADMIN_EMAIL,
+  adminPassword: process.env.ADMIN_PASSWORD,
   traefikDashboardEnabled: process.env.TRAEFIK_DASHBOARD_ENABLED,
   traefikDashboardPort: process.env.TRAEFIK_DASHBOARD_PORT,
   acmeEmail: process.env.ACME_EMAIL,

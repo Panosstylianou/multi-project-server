@@ -72,9 +72,9 @@ class AuthService {
   }
 
   private async createDefaultAdmin(): Promise<void> {
-    // Default credentials - should be changed on first login
+    // Default credentials from config
     const defaultEmail = config.adminEmail || 'admin@localhost';
-    const defaultPassword = 'admin123'; // User should change this!
+    const defaultPassword = config.adminPassword || 'admin123';
     
     const passwordHash = await bcrypt.hash(defaultPassword, 12);
     
@@ -89,8 +89,8 @@ class AuthService {
     this.store.users.push(adminUser);
     await this.saveStore();
     
-    logger.warn(`Default admin created with email: ${defaultEmail} and password: admin123`);
-    logger.warn('IMPORTANT: Change the default password after first login!');
+    logger.warn(`Default admin created with email: ${defaultEmail}`);
+    logger.info('Admin credentials loaded from configuration');
   }
 
   async login(email: string, password: string): Promise<{ token: string; user: Omit<AdminUser, 'passwordHash'> } | null> {

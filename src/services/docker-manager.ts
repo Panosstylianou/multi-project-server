@@ -14,7 +14,23 @@ export class DockerManager {
   private usedPorts = new Set<number>();
 
   constructor() {
-    this.docker = new Docker({ socketPath: config.dockerSocket });
+    // Support both Unix socket and TCP connections
+    const dockerSocket = config.dockerSocket;
+    
+    if (dockerSocket.startsWith('tcp://')) {
+      // TCP connection (e.g., tcp://localhost:2375)
+      const url = new URL(dockerSocket);
+      this.docker = new Docker({
+        host: url.hostname,
+        port: parseInt(url.port || '2375'),
+      });
+      logger.debug(`Connecting to Docker via TCP: ${url.hostname}:${url.port}`);
+    } else {
+      // Unix socket (default)
+      this.docker = new Docker({ socketPath: dockerSocket });
+      logger.debug(`Connecting to Docker via socket: ${dockerSocket}`);
+    }
+    
     this.networkName = config.pocketbaseNetwork;
   }
 
