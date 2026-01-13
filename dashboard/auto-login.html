@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logging in...</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .spinner {
+      border: 4px solid #f3f4f6;
+      border-top: 4px solid #3b82f6;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+  <div class="text-center">
+    <div class="spinner mx-auto mb-6"></div>
+    <h1 class="text-2xl font-bold mb-2">Logging you in...</h1>
+    <p id="status" class="text-gray-400">Authenticating with your credentials</p>
+    <p id="error" class="text-red-400 mt-4 hidden"></p>
+    <button id="manual-login" class="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg hidden">
+      Login Manually
+    </button>
+  </div>
+
+  <script>
+    // Auto-login script for PocketBase admin panel
+    async function autoLogin() {
+      try {
+        // Get project ID from URL params
+        const params = new URLSearchParams(window.location.search);
+        const projectId = params.get('projectId');
+        const projectDomain = params.get('domain');
+
+        if (!projectId || !projectDomain) {
+          showError('Missing project information. Please use the dashboard to access databases.');
+          return;
+        }
+
+        // Update status
+        document.getElementById('status').textContent = 'Fetching credentials...';
+
+        // Get JWT token from localStorage
+        const token = localStorage.getItem('jwt_token');
+        if (!token) {
+          showError('Not authenticated. Please login to the dashboard first.');
+          setTimeout(() => {
+            window.location.href = '/dashboard/login.html';
+          }, 2000);
+          return;
+        }
+
+        // Fetch credentials from manager API
+        const credResponse = await fetch(`/api/projects/${projectId}/credentials`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!credResponse.ok) {
+          throw new Error('Failed to fetch credentials');
+        }
+
+        const credData = await credResponse.json();
+        
+        if (!credData.success) {
+          throw new Error(credData.error || 'No credentials found');
+        }
+
+        // Update status
+        document.getElementById('status').textContent = 'Authenticating with PocketBase...';
+
+        // Try to authenticate with PocketBase
+        // Try multiple endpoints for compatibility with different PocketBase versions
+        const endpoints = [
+          `/api/collections/_superusers/auth-with-password`,
+          `/api/admins/auth-with-password`,
+          `/_/api/admins/auth-with-password`
+        ];
+
+        let authSuccess = false;
+        let pbToken = null;
+
+        for (const endpoint of endpoints) {
+          try {
+            const authResponse = await fetch(`https://${projectDomain}${endpoint}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                identity: credData.data.email,
+                password: localStorage.getItem(`pb_password_${projectId}`) || 'BetterMapRules8'
+              })
+            });
+
+            const authData = await authResponse.json();
+
+            if (authData.token) {
+              pbToken = authData.token;
+              authSuccess = true;
+              break;
+            }
+          } catch (e) {
+            console.log(`Endpoint ${endpoint} failed:`, e);
+            continue;
+          }
+        }
+
+        if (!authSuccess || !pbToken) {
+          // Authentication failed - open admin panel for manual login
+          document.getElementById('status').textContent = 'Auto-login not available';
+          document.getElementById('error').textContent = 
+            `Opening admin panel for manual login. Use: ${credData.data.email}`;
+          document.getElementById('error').classList.remove('hidden');
+          
+          setTimeout(() => {
+            window.location.href = `https://${projectDomain}/_/`;
+          }, 2000);
+          return;
+        }
+
+        // Success! Set token in a way PocketBase admin can use it
+        document.getElementById('status').textContent = 'Login successful! Redirecting...';
+
+        // Create a form to POST the token to PocketBase admin
+        // This is a workaround since we can't directly set localStorage for another domain
+        const redirectUrl = `https://${projectDomain}/_/#token=${pbToken}`;
+        
+        setTimeout(() => {
+          window.location.href = redirectUrl;
+        }, 500);
+
+      } catch (error) {
+        console.error('Auto-login error:', error);
+        showError(`Auto-login failed: ${error.message}. Opening admin panel for manual login...`);
+        
+        const params = new URLSearchParams(window.location.search);
+        const projectDomain = params.get('domain');
+        
+        if (projectDomain) {
+          setTimeout(() => {
+            window.location.href = `https://${projectDomain}/_/`;
+          }, 2000);
+        }
+      }
+    }
+
+    function showError(message) {
+      document.getElementById('error').textContent = message;
+      document.getElementById('error').classList.remove('hidden');
+      document.getElementById('manual-login').classList.remove('hidden');
+      
+      document.getElementById('manual-login').onclick = () => {
+        const params = new URLSearchParams(window.location.search);
+        const projectDomain = params.get('domain');
+        if (projectDomain) {
+          window.location.href = `https://${projectDomain}/_/`;
+        }
+      };
+    }
+
+    // Start auto-login when page loads
+    autoLogin();
+  </script>
+</body>
+</html>
+
