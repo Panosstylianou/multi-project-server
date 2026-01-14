@@ -46,34 +46,14 @@
         }
 
         // Update status
-        document.getElementById('status').textContent = 'Fetching credentials...';
+        document.getElementById('status').textContent = 'Using unified credentials...';
 
-        // Get JWT token from localStorage
-        const token = localStorage.getItem('jwt_token');
-        if (!token) {
-          showError('Not authenticated. Please login to the dashboard first.');
-          setTimeout(() => {
-            window.location.href = '/dashboard/login.html';
-          }, 2000);
-          return;
-        }
-
-        // Fetch credentials from manager API
-        const credResponse = await fetch(`/api/projects/${projectId}/credentials`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!credResponse.ok) {
-          throw new Error('Failed to fetch credentials');
-        }
-
-        const credData = await credResponse.json();
-        
-        if (!credData.success) {
-          throw new Error(credData.error || 'No credentials found');
-        }
+        // For single-user setup, use the unified credentials
+        // These are the same credentials used for the dashboard
+        const credentials = {
+          email: 'hello@oceannet.dev',
+          password: 'BetterMapRules8'
+        };
 
         // Update status
         document.getElementById('status').textContent = 'Authenticating with PocketBase...';
@@ -97,8 +77,8 @@
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                identity: credData.data.email,
-                password: localStorage.getItem(`pb_password_${projectId}`) || 'BetterMapRules8'
+                identity: credentials.email,
+                password: credentials.password
               })
             });
 
@@ -119,7 +99,7 @@
           // Authentication failed - open admin panel for manual login
           document.getElementById('status').textContent = 'Auto-login not available';
           document.getElementById('error').textContent = 
-            `Opening admin panel for manual login. Use: ${credData.data.email}`;
+            `Opening admin panel for manual login. Use: ${credentials.email}`;
           document.getElementById('error').classList.remove('hidden');
           
           setTimeout(() => {
