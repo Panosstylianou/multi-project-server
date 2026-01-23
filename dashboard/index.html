@@ -1383,17 +1383,74 @@ POCKETBASE_URL=https://${selectedProject.domain}`"></code></pre>
         },
 
         // Open admin panel
-        openAdminPanel(project) {
+        async openAdminPanel(project) {
           if (project.status !== 'running') {
             this.showToast('error', 'Database must be running to access admin panel');
             return;
           }
           
-          // Use auto-login page for seamless authentication
-          const autoLoginUrl = `/dashboard/auto-login.html?projectId=${project.id}&domain=${project.domain}`;
-          window.open(autoLoginUrl, '_blank', 'noopener,noreferrer');
-          
-          this.showToast('info', 'Opening admin panel with auto-login...');
+          try {
+            // Try to get auto-login token from backend
+            const apiBase = window.location.origin;
+            const response = await fetch(`${apiBase}/api/projects/${project.id}/auto-login-url`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+            });
+
+            const data = await response.json();
+            
+            if (data.success && data.data?.token) {
+              // We have a token - open admin panel with token
+              const token = data.data.token;
+              const adminUrl = `https://${project.domain}/_/`;
+              
+              // Open admin panel in new window
+              const adminWindow = window.open(adminUrl, '_blank', 'noopener,noreferrer');
+              
+              if (adminWindow) {
+                // Try to inject token via postMessage after window loads
+                setTimeout(() => {
+                  try {
+                    adminWindow.postMessage({
+                      type: 'pocketbase-set-auth',
+                      token: token,
+                      auth: {
+                        token: token,
+                        model: data.data.admin || { email: 'admin' }
+                      }
+                    }, `https://${project.domain}`);
+                  } catch (e) {
+                    console.log('Could not send postMessage (CORS):', e);
+                  }
+                }, 1000);
+                
+                // Also try setting via URL hash (PocketBase might check this)
+                setTimeout(() => {
+                  try {
+                    adminWindow.location.href = `${adminUrl}#token=${token}`;
+                  } catch (e) {
+                    console.log('Could not set location (CORS):', e);
+                  }
+                }, 500);
+              }
+              
+              this.showToast('success', 'Opening admin panel...');
+            } else {
+              // Fallback: use auto-login page
+              const autoLoginUrl = `/dashboard/auto-login.html?projectId=${project.id}&domain=${project.domain}`;
+              window.open(autoLoginUrl, '_blank', 'noopener,noreferrer');
+              this.showToast('info', 'Opening admin panel...');
+            }
+          } catch (error) {
+            console.error('Failed to get auto-login URL:', error);
+            // Fallback: use auto-login page
+            const autoLoginUrl = `/dashboard/auto-login.html?projectId=${project.id}&domain=${project.domain}`;
+            window.open(autoLoginUrl, '_blank', 'noopener,noreferrer');
+            this.showToast('info', 'Opening admin panel...');
+          }
         },
 
         // Show database details

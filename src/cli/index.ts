@@ -579,6 +579,113 @@ program
     }
   });
 
+// Create user command
+program
+  .command('create-user <email> <password>')
+  .description('Create a PocketBase admin user for a project or container')
+  .option('-p, --project <project>', 'Project ID or slug')
+  .option('-d, --domain <domain>', 'Find project by domain')
+  .option('-c, --container <container>', 'Use container name directly (skip project lookup)')
+  .action(async (email, password, options) => {
+    try {
+      await projectManager.initialize();
+
+      // If container name is provided directly, use it
+      if (options.container) {
+        const spinner = ora(`Creating user ${email} for container "${options.container}"...`).start();
+        
+        try {
+          await projectManager.createUserForContainer(options.container, email, password);
+          spinner.succeed(`User ${email} created successfully for container "${options.container}"`);
+          console.log('');
+          console.log(chalk.bold('User Details:'));
+          console.log(`  ${chalk.gray('Email:')}     ${email}`);
+          console.log(`  ${chalk.gray('Container:')} ${options.container}`);
+          console.log('');
+          console.log(chalk.yellow('You can now login to the admin panel with these credentials.'));
+        } catch (error) {
+          spinner.fail(`Failed to create user`);
+          throw error;
+        }
+        return;
+      }
+
+      // Find project by domain, project ID/slug, or infer from domain pattern
+      let project;
+      
+      if (options.domain) {
+        project = await projectManager.getProjectByDomain(options.domain);
+        if (!project) {
+          // Try to infer container name from domain
+          const domainParts = options.domain.split('.');
+          if (domainParts.length >= 3) {
+            const slug = domainParts[0]; // e.g., "api" from "api.db.oceannet.dev"
+            const inferredContainer = `pocketbase-${slug}`;
+            console.log(chalk.yellow(`Project not found in metadata, trying container: ${inferredContainer}`));
+            
+            const spinner = ora(`Creating user ${email} for container "${inferredContainer}"...`).start();
+            try {
+              await projectManager.createUserForContainer(inferredContainer, email, password);
+              spinner.succeed(`User ${email} created successfully`);
+              console.log('');
+              console.log(chalk.bold('User Details:'));
+              console.log(`  ${chalk.gray('Email:')}     ${email}`);
+              console.log(`  ${chalk.gray('Domain:')}    ${options.domain}`);
+              console.log(`  ${chalk.gray('Container:')} ${inferredContainer}`);
+              console.log(`  ${chalk.gray('Admin URL:')} ${chalk.cyan(`https://${options.domain}/_/`)}`);
+              console.log('');
+              console.log(chalk.yellow('You can now login to the admin panel with these credentials.'));
+              return;
+            } catch (error) {
+              spinner.fail(`Container "${inferredContainer}" not found or not accessible`);
+              throw new Error(`Could not find project or container for domain: ${options.domain}`);
+            }
+          }
+        }
+      } else if (options.project) {
+        project = await projectManager.getProject(options.project);
+        if (!project) {
+          project = await projectManager.getProjectBySlug(options.project);
+        }
+      }
+
+      if (!project) {
+        console.error(chalk.red(`Project not found. Please specify:`));
+        console.error(chalk.gray('  --project <id-or-slug>'));
+        console.error(chalk.gray('  --domain <domain>'));
+        console.error(chalk.gray('  --container <container-name>'));
+        process.exit(1);
+      }
+
+      if (project.status !== 'running') {
+        console.error(chalk.red(`Project "${project.name}" is not running. Please start it first.`));
+        process.exit(1);
+      }
+
+      const spinner = ora(`Creating user ${email} for "${project.name}"...`).start();
+      
+      try {
+        await projectManager.createUser(project.id, email, password);
+        spinner.succeed(`User ${email} created successfully for "${project.name}"`);
+        
+        const adminUrl = await projectManager.getProjectAdminUrl(project.id);
+        console.log('');
+        console.log(chalk.bold('User Details:'));
+        console.log(`  ${chalk.gray('Email:')}    ${email}`);
+        console.log(`  ${chalk.gray('Project:')}  ${project.name} (${project.slug})`);
+        console.log(`  ${chalk.gray('Admin URL:')} ${chalk.cyan(adminUrl)}`);
+        console.log('');
+        console.log(chalk.yellow('You can now login to the admin panel with these credentials.'));
+      } catch (error) {
+        spinner.fail(`Failed to create user`);
+        throw error;
+      }
+    } catch (error) {
+      console.error(chalk.red(`Error: ${(error as Error).message}`));
+      process.exit(1);
+    }
+  });
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;

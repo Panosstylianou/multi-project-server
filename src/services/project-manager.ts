@@ -135,14 +135,33 @@ export class ProjectManager {
         const adminEmail = config.adminEmail;
         const adminPassword = config.adminPassword || 'admin123';
 
-        // Wait a bit for PocketBase to fully start
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Create admin user via PocketBase CLI
-        await dockerManager.execInContainer(
-          containerResult.containerName,
-          ['/usr/local/bin/pocketbase', 'superuser', 'upsert', adminEmail, adminPassword]
-        );
+        // Wait for PocketBase to fully start - check health endpoint
+        logger.info(`Waiting for PocketBase to be ready...`);
+        let retries = 10;
+        let isReady = false;
+        
+        while (retries > 0 && !isReady) {
+          try {
+            // Try to check if PocketBase is ready by checking container logs or health
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Try to create the admin user - if PocketBase isn't ready, this will fail
+            const output = await dockerManager.execInContainer(
+              containerResult.containerName,
+              ['/usr/local/bin/pocketbase', 'superuser', 'upsert', adminEmail, adminPassword]
+            );
+            
+            // If we get here without error, PocketBase is ready and user is created
+            isReady = true;
+            logger.debug(`PocketBase output: ${output}`);
+          } catch (error) {
+            retries--;
+            if (retries === 0) {
+              throw error;
+            }
+            logger.debug(`PocketBase not ready yet, retrying... (${retries} attempts left)`);
+          }
+        }
 
         // Store credentials for reference
         await credentialsManager.storeCredentials(
@@ -154,9 +173,13 @@ export class ProjectManager {
           adminPassword
         );
 
-        logger.info(`Admin user created with unified credentials for: ${slug}`);
+        logger.info(`✓ Admin user created successfully for: ${slug} (${adminEmail})`);
       } catch (error) {
-        logger.warn(`Failed to create admin user for ${slug}:`, error);
+        logger.error(`✗ Failed to create admin user for ${slug}:`, error);
+        logger.error(`  Email: ${config.adminEmail}`);
+        logger.error(`  Container: ${containerResult.containerName}`);
+        logger.error(`  You can create the admin user manually with:`);
+        logger.error(`  docker exec ${containerResult.containerName} /usr/local/bin/pocketbase superuser upsert ${config.adminEmail} ${config.adminPassword || 'admin123'}`);
         // Don't fail the whole project creation if admin creation fails
         // User can always create manually
       }
@@ -428,6 +451,45 @@ export class ProjectManager {
   async getProjectAdminUrl(projectId: string): Promise<string> {
     const baseUrl = await this.getProjectUrl(projectId);
     return `${baseUrl}/_/`;
+  }
+
+  async getProjectByDomain(domain: string): Promise<Project | null> {
+    const projects = await storageManager.getAllProjects();
+    return projects.find((p) => p.domain === domain) || null;
+  }
+
+  async createUser(projectId: string, email: string, password: string): Promise<void> {
+    const project = await storageManager.getProject(projectId);
+    if (!project) {
+      throw new Error(`Project not found: ${projectId}`);
+    }
+
+    if (!project.containerName) {
+      throw new Error(`Project ${project.slug} has no container name`);
+    }
+
+    return this.createUserForContainer(project.containerName, email, password, project.slug);
+  }
+
+  async createUserForContainer(containerName: string, email: string, password: string, projectSlug?: string): Promise<void> {
+    logger.info(`Creating user ${email} for container: ${containerName}`);
+
+    // Wait a bit to ensure PocketBase is ready
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Create user via PocketBase CLI
+    try {
+      const output = await dockerManager.execInContainer(
+        containerName,
+        ['/usr/local/bin/pocketbase', 'superuser', 'upsert', email, password]
+      );
+      
+      logger.info(`User created successfully for ${containerName}`);
+      logger.debug(`PocketBase output: ${output}`);
+    } catch (error) {
+      logger.error(`Failed to create user for ${containerName}:`, error);
+      throw new Error(`Failed to create user: ${(error as Error).message}`);
+    }
   }
 
   private generateSlug(name: string): string {

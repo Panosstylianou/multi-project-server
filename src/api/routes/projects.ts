@@ -384,6 +384,7 @@ router.get('/:id/credentials', asyncHandler(async (req, res) => {
 /**
  * GET /api/projects/:id/auto-login-url
  * Generate a URL to auto-login to PocketBase admin
+ * This endpoint is public (no auth required) since it's called from the auto-login page
  */
 router.get('/:id/auto-login-url', asyncHandler(async (req, res) => {
   const { id } = req.params;

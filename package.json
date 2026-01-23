@@ -16,7 +16,10 @@
     "test": "vitest",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+    "docker:down": "docker-compose down",
+    "migrate:oceannet": "tsx scripts/migrate-oceannet-collections.ts",
+    "fix:admin": "./scripts/fix-admin-user-remote.sh",
+    "fix:admin:api": "tsx scripts/fix-admin-user-api.ts"
   },
   "keywords": [
     "pocketbase",

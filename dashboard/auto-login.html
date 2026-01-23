@@ -45,79 +45,119 @@
           return;
         }
 
-        // Update status
-        document.getElementById('status').textContent = 'Using unified credentials...';
+        // Step 1: Get credentials from backend API
+        document.getElementById('status').textContent = 'Fetching credentials...';
+        
+        let credentials;
+        try {
+          // Try to get credentials from the backend API
+          const apiBase = window.location.origin;
+          const credsResponse = await fetch(`${apiBase}/api/projects/${projectId}/auto-login-url`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include', // Include cookies for auth
+          });
 
-        // For single-user setup, use the unified credentials
-        // These are the same credentials used for the dashboard
-        const credentials = {
-          email: 'hello@oceannet.dev',
-          password: 'BetterMapRules8'
-        };
+          const credsData = await credsResponse.json();
+          
+          if (credsData.success && credsData.data?.token) {
+            // Backend already authenticated and gave us a token
+            const token = credsData.data.token;
+            document.getElementById('status').textContent = 'Login successful! Redirecting...';
+            
+            // Redirect to admin panel with token in hash
+            // PocketBase admin will check for token in hash and use it
+            setTimeout(() => {
+              window.location.href = `https://${projectDomain}/_/#token=${token}`;
+            }, 500);
+            return;
+          } else if (credsData.data?.adminUrl) {
+            // Backend has credentials but couldn't authenticate
+            // Fall through to direct authentication
+            credentials = {
+              email: 'hello@oceannet.dev', // Default unified credentials
+              password: 'BetterMapRules8'
+            };
+          } else {
+            throw new Error('Could not get credentials from API');
+          }
+        } catch (apiError) {
+          console.log('API fetch failed, using default credentials:', apiError);
+          // Fallback to default unified credentials
+          credentials = {
+            email: 'hello@oceannet.dev',
+            password: 'BetterMapRules8'
+          };
+        }
 
-        // Update status
+        // Step 2: Authenticate directly with PocketBase
         document.getElementById('status').textContent = 'Authenticating with PocketBase...';
-
-        // Try to authenticate with PocketBase
-        // Try multiple endpoints for compatibility with different PocketBase versions
-        const endpoints = [
-          `/api/collections/_superusers/auth-with-password`,
-          `/api/admins/auth-with-password`,
-          `/_/api/admins/auth-with-password`
-        ];
 
         let authSuccess = false;
         let pbToken = null;
 
-        for (const endpoint of endpoints) {
-          try {
-            const authResponse = await fetch(`https://${projectDomain}${endpoint}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                identity: credentials.email,
-                password: credentials.password
-              })
-            });
+        // Try the standard admin auth endpoint
+        try {
+          const authResponse = await fetch(`https://${projectDomain}/api/admins/auth-with-password`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              identity: credentials.email,
+              password: credentials.password
+            }),
+            credentials: 'include', // Include cookies
+          });
 
+          if (authResponse.ok) {
             const authData = await authResponse.json();
-
             if (authData.token) {
               pbToken = authData.token;
               authSuccess = true;
-              break;
             }
-          } catch (e) {
-            console.log(`Endpoint ${endpoint} failed:`, e);
-            continue;
           }
+        } catch (e) {
+          console.error('Authentication failed:', e);
         }
 
         if (!authSuccess || !pbToken) {
-          // Authentication failed - open admin panel for manual login
-          document.getElementById('status').textContent = 'Auto-login not available';
+          // Authentication failed - show error and redirect for manual login
+          document.getElementById('status').textContent = 'Auto-login failed';
           document.getElementById('error').textContent = 
-            `Opening admin panel for manual login. Use: ${credentials.email}`;
+            `Could not authenticate automatically. Opening admin panel for manual login.\n\nEmail: ${credentials.email}`;
           document.getElementById('error').classList.remove('hidden');
           
           setTimeout(() => {
             window.location.href = `https://${projectDomain}/_/`;
-          }, 2000);
+          }, 3000);
           return;
         }
 
-        // Success! Set token in a way PocketBase admin can use it
-        document.getElementById('status').textContent = 'Login successful! Redirecting...';
-
-        // Create a form to POST the token to PocketBase admin
-        // This is a workaround since we can't directly set localStorage for another domain
-        const redirectUrl = `https://${projectDomain}/_/#token=${pbToken}`;
+        // Step 3: Success! Now redirect to admin panel
+        // Note: Due to CORS restrictions, we can't directly set localStorage for PocketBase admin
+        // So we'll redirect and the user will be automatically logged in if PocketBase checks the URL
+        // Otherwise, they'll see the login form (but credentials are verified to work)
         
+        document.getElementById('status').textContent = 'Login verified! Opening admin panel...';
+        
+        const adminUrl = `https://${projectDomain}/_/`;
+        
+        // Store credentials in sessionStorage as backup (for potential future use)
+        sessionStorage.setItem(`pb_auth_${projectDomain}`, JSON.stringify({
+          token: pbToken,
+          email: credentials.email,
+          timestamp: Date.now()
+        }));
+        
+        // Redirect to admin panel
+        // PocketBase admin will check for auth in localStorage
+        // If not found, user will see login form but we've verified credentials work
         setTimeout(() => {
-          window.location.href = redirectUrl;
-        }, 500);
+          window.location.href = adminUrl;
+        }, 1000);
 
       } catch (error) {
         console.error('Auto-login error:', error);
