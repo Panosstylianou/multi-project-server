@@ -73,7 +73,12 @@ echo "✅ Container is running"
 # Create admin user
 echo ""
 echo "📝 Creating admin user..."
-if ssh -i "$SSH_KEY" "$PROD_USER@$PROD_HOST" "docker exec $CONTAINER /usr/local/bin/pocketbase superuser upsert '$EMAIL' '$PASSWORD'" 2>&1; then
+# Use --dir flag to specify the data directory (mounted at /pb_data in container)
+UPSERT_OUTPUT=$(ssh -i "$SSH_KEY" "$PROD_USER@$PROD_HOST" "docker exec $CONTAINER /usr/local/bin/pocketbase --dir /pb_data superuser upsert '$EMAIL' '$PASSWORD'" 2>&1)
+UPSERT_EXIT_CODE=$?
+
+if [ $UPSERT_EXIT_CODE -eq 0 ]; then
+  echo "$UPSERT_OUTPUT"
   echo ""
   echo "✅ Admin user created successfully!"
   echo ""
@@ -81,13 +86,22 @@ if ssh -i "$SSH_KEY" "$PROD_USER@$PROD_HOST" "docker exec $CONTAINER /usr/local/
   echo "   Domain:   $DOMAIN"
   echo "   Admin:    https://$DOMAIN/_/"
   echo ""
+  echo "⏳ Waiting 2 seconds for changes to propagate..."
+  sleep 2
+  echo ""
   echo "You can now login to the admin panel with these credentials."
+  echo ""
+  echo "💡 If login still fails, try:"
+  echo "   1. Restart the container: ssh -i $SSH_KEY $PROD_USER@$PROD_HOST 'docker restart $CONTAINER'"
+  echo "   2. Verify user exists: ssh -i $SSH_KEY $PROD_USER@$PROD_HOST 'docker exec $CONTAINER /usr/local/bin/pocketbase --dir /pb_data superuser list'"
 else
+  echo "$UPSERT_OUTPUT"
   echo ""
   echo "❌ Failed to create admin user"
   echo ""
   echo "Troubleshooting:"
   echo "  1. Check if container is running: ssh -i $SSH_KEY $PROD_USER@$PROD_HOST 'docker ps | grep $CONTAINER'"
-  echo "  2. Check container logs: ssh -i $SSH_KEY $PROD_USER@$PROD_HOST 'docker logs $CONTAINER'"
+  echo "  2. Check container logs: ssh -i $SSH_KEY $PROD_USER@$PROD_HOST 'docker logs $CONTAINER --tail 50'"
+  echo "  3. Try listing existing users: ssh -i $SSH_KEY $PROD_USER@$PROD_HOST 'docker exec $CONTAINER /usr/local/bin/pocketbase --dir /pb_data superuser list'"
   exit 1
 fi

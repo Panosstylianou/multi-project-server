@@ -332,6 +332,7 @@ resource "aws_instance" "server" {
     domain         = var.domain
     api_key        = var.api_key
     admin_email    = var.admin_email
+    admin_password = var.admin_password
     acme_email     = var.acme_email
     s3_bucket      = aws_s3_bucket.backups.id
     aws_region     = var.aws_region

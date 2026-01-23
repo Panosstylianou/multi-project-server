@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { config } from '../config/index.js';
 import { createChildLogger } from '../utils/logger.js';
 import { combinedAuth, requestLogger, errorHandler } from './middleware/auth.js';
@@ -27,8 +28,17 @@ export function createServer() {
   app.use(requestLogger);
 
   // Serve static dashboard files
-  const dashboardPath = path.join(__dirname, '../../dashboard');
-  app.use('/dashboard', express.static(dashboardPath));
+  // Use process.cwd() to get project root, which works in both dev and production
+  const dashboardPath = path.join(process.cwd(), 'dashboard');
+  const absoluteDashboardPath = path.resolve(dashboardPath);
+  
+  if (!fs.existsSync(absoluteDashboardPath)) {
+    logger.error(`Dashboard path does not exist: ${absoluteDashboardPath}`);
+  } else {
+    logger.info(`Serving dashboard from: ${absoluteDashboardPath}`);
+  }
+  
+  app.use('/dashboard', express.static(absoluteDashboardPath, { index: 'index.html' }));
 
   // Redirect root to dashboard
   app.get('/', (req, res) => {

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -71,11 +72,48 @@ const rawConfig = {
 
 export const config = configSchema.parse(rawConfig);
 
+// Helper to resolve data/backup paths
+// In Docker, these will be absolute paths like /app/data
+// For local development, use relative paths from project root
+function resolveDataPath(configuredPath: string): string {
+  // If it's an absolute path that looks like a Docker path (/app or /app/...),
+  // and we're not in a Docker container (check if /app exists and is writable),
+  // fall back to relative path for local development
+  if (path.isAbsolute(configuredPath) && configuredPath.startsWith('/app')) {
+    // Check if /app exists - if not, we're likely running locally
+    try {
+      if (!fs.existsSync('/app') || !fs.statSync('/app').isDirectory()) {
+        // This is a Docker path but we're running locally - use relative path instead
+        const relativePath = configuredPath.replace(/^\/app/, '.');
+        return path.resolve(process.cwd(), relativePath);
+      }
+    } catch {
+      // Can't access /app, assume we're running locally
+      const relativePath = configuredPath.replace(/^\/app/, '.');
+      return path.resolve(process.cwd(), relativePath);
+    }
+    // /app exists, we're likely in Docker - use the path as-is
+    return configuredPath;
+  }
+  // For other absolute paths, use as-is
+  if (path.isAbsolute(configuredPath)) {
+    return configuredPath;
+  }
+  // Relative paths: resolve from project root
+  return path.resolve(process.cwd(), configuredPath);
+}
+
 export const paths = {
-  data: path.resolve(config.dataDir),
-  backups: path.resolve(config.backupsDir),
-  projectData: (projectId: string) => path.resolve(config.dataDir, 'projects', projectId),
-  projectBackup: (projectId: string) => path.resolve(config.backupsDir, projectId),
+  data: resolveDataPath(config.dataDir),
+  backups: resolveDataPath(config.backupsDir),
+  projectData: (projectId: string) => {
+    const basePath = resolveDataPath(config.dataDir);
+    return path.resolve(basePath, 'projects', projectId);
+  },
+  projectBackup: (projectId: string) => {
+    const basePath = resolveDataPath(config.backupsDir);
+    return path.resolve(basePath, projectId);
+  },
 };
 
 export type Config = z.infer<typeof configSchema>;

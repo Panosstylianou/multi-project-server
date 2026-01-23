@@ -16,7 +16,11 @@ async function main() {
 
     logger.info('Server initialized successfully');
   } catch (error) {
-    logger.error('Failed to start server', error);
+    logger.error({ err: error }, 'Failed to start server');
+    if (error instanceof Error) {
+      logger.error(`Error message: ${error.message}`);
+      logger.error(`Error stack: ${error.stack}`);
+    }
     process.exit(1);
   }
 }

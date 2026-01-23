@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import fs from 'fs/promises';
 import path from 'path';
-import { config } from '../config/index.js';
+import { config, paths } from '../config/index.js';
 import { createChildLogger } from '../utils/logger.js';
 
 const logger = createChildLogger('auth-service');
@@ -34,22 +34,27 @@ class AuthService {
   private jwtSecret: string;
 
   constructor() {
-    this.storePath = path.join(config.dataDir, 'admin.json');
+    this.storePath = path.join(paths.data, 'admin.json');
     // Use API key as JWT secret (or generate a separate one)
     this.jwtSecret = config.apiKey || 'default-jwt-secret-change-me';
   }
 
   async initialize(): Promise<void> {
-    await this.loadStore();
-    
-    // If no users exist, create default admin
-    if (this.store.users.length === 0) {
-      logger.info('No admin users found, creating default admin user');
-      await this.createDefaultAdmin();
+    try {
+      await this.loadStore();
+      
+      // If no users exist, create default admin
+      if (this.store.users.length === 0) {
+        logger.info('No admin users found, creating default admin user');
+        await this.createDefaultAdmin();
+      }
+      
+      this.store.initialized = true;
+      logger.info(`Auth service initialized with ${this.store.users.length} admin user(s)`);
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to initialize auth service');
+      throw error;
     }
-    
-    this.store.initialized = true;
-    logger.info(`Auth service initialized with ${this.store.users.length} admin user(s)`);
   }
 
   private async loadStore(): Promise<void> {
@@ -68,6 +73,8 @@ class AuthService {
   }
 
   private async saveStore(): Promise<void> {
+    // Ensure directory exists before writing
+    await fs.mkdir(path.dirname(this.storePath), { recursive: true });
     await fs.writeFile(this.storePath, JSON.stringify(this.store, null, 2));
   }
 

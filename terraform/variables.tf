@@ -80,8 +80,14 @@ variable "api_key" {
 }
 
 variable "admin_email" {
-  description = "Admin email for notifications"
+  description = "Admin email for PocketBase databases"
   type        = string
+}
+
+variable "admin_password" {
+  description = "Admin password for PocketBase databases"
+  type        = string
+  sensitive   = true
 }
 
 variable "acme_email" {

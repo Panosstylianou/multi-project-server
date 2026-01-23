@@ -12,14 +12,20 @@ const router = Router();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const stats = await projectManager.getStats();
-    const containers = await dockerManager.listManagedContainers();
+    let containers = [];
+    try {
+      containers = await dockerManager.listManagedContainers();
+    } catch (error) {
+      // Docker not available, use empty array
+      containers = [];
+    }
 
     const erroredContainers = containers.filter((c) => c.state !== 'running' && c.status !== 'exited');
 
     const health: HealthStatus = {
       status: erroredContainers.length > 0 ? 'degraded' : 'healthy',
       timestamp: new Date(),
-      docker: true,
+      docker: containers.length > 0,
       storage: true,
       projects: {
         total: stats.totalProjects,

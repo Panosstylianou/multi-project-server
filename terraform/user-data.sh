@@ -91,6 +91,7 @@ S3_BACKUP_BUCKET=${s3_bucket}
 # Security
 API_KEY=${api_key}
 ADMIN_EMAIL=${admin_email}
+ADMIN_PASSWORD=${admin_password}
 
 # SSL
 ACME_EMAIL=${acme_email}
@@ -116,6 +117,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -125,10 +128,6 @@ services:
       - POCKETBASE_NETWORK=pocketbase-network
       - DATA_DIR=/app/data
       - BACKUPS_DIR=/app/backups
-      - BASE_DOMAIN=$${BASE_DOMAIN}
-      - USE_HTTPS=$${USE_HTTPS}
-      - API_KEY=$${API_KEY}
-      - ADMIN_EMAIL=$${ADMIN_EMAIL}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /opt/pocketbase-manager/data:/app/data
@@ -137,7 +136,7 @@ services:
       - pocketbase-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.manager.rule=Host(`manager.$${BASE_DOMAIN}`)"
+      - "traefik.http.routers.manager.rule=Host(`manager.${BASE_DOMAIN}`)"
       - "traefik.http.routers.manager.entrypoints=websecure"
       - "traefik.http.routers.manager.tls=true"
       - "traefik.http.routers.manager.tls.certresolver=letsencrypt"
@@ -159,7 +158,7 @@ services:
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=$${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--log.level=INFO"
     ports:
@@ -172,7 +171,7 @@ services:
       - pocketbase-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.$${BASE_DOMAIN}`)"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${BASE_DOMAIN}`)"
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls=true"
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"

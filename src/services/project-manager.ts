@@ -31,38 +31,57 @@ export class ProjectManager {
 
   async initialize(): Promise<void> {
     logger.info('Initializing project manager...');
-    await dockerManager.initialize();
+    
+    // Try to initialize Docker, but don't fail if unavailable
+    try {
+      await dockerManager.initialize();
+    } catch (error) {
+      logger.warn('Docker manager initialization failed - continuing without Docker');
+    }
+    
     await storageManager.initialize();
     await credentialsManager.initialize();
 
-    // Sync project statuses with actual container states
-    await this.syncProjectStatuses();
+    // Sync project statuses with actual container states (only if Docker is available)
+    try {
+      await this.syncProjectStatuses();
+    } catch (error) {
+      logger.warn('Could not sync project statuses - Docker may not be available');
+    }
 
     logger.info('Project manager initialized');
   }
 
   private async syncProjectStatuses(): Promise<void> {
+    // Skip sync if Docker is not available - check by trying to get container info
+    // If Docker isn't initialized, getContainerInfo will fail gracefully
+
     const projects = await storageManager.getAllProjects();
 
     for (const project of projects) {
       if (project.status === 'deleted') continue;
 
-      const containerInfo = await dockerManager.getContainerInfo(project.containerName);
+      try {
+        const containerInfo = await dockerManager.getContainerInfo(project.containerName);
 
-      let newStatus: ProjectStatus;
-      if (!containerInfo) {
-        newStatus = 'error';
-      } else if (containerInfo.state === 'running') {
-        newStatus = 'running';
-      } else {
-        newStatus = 'stopped';
-      }
+        let newStatus: ProjectStatus;
+        if (!containerInfo) {
+          newStatus = 'error';
+        } else if (containerInfo.state === 'running') {
+          newStatus = 'running';
+        } else {
+          newStatus = 'stopped';
+        }
 
-      if (project.status !== newStatus) {
-        logger.info(`Syncing project ${project.slug} status: ${project.status} -> ${newStatus}`);
-        project.status = newStatus;
-        project.updatedAt = new Date();
-        await storageManager.saveProject(project);
+        if (project.status !== newStatus) {
+          logger.info(`Syncing project ${project.slug} status: ${project.status} -> ${newStatus}`);
+          project.status = newStatus;
+          project.updatedAt = new Date();
+          await storageManager.saveProject(project);
+        }
+      } catch (error) {
+        // Skip projects where we can't get container info
+        logger.debug(`Could not sync status for ${project.slug}:`, error);
       }
     }
   }
@@ -146,9 +165,10 @@ export class ProjectManager {
             await new Promise(resolve => setTimeout(resolve, 2000));
             
             // Try to create the admin user - if PocketBase isn't ready, this will fail
+            // IMPORTANT: Use --dir /pb_data to specify the data directory
             const output = await dockerManager.execInContainer(
               containerResult.containerName,
-              ['/usr/local/bin/pocketbase', 'superuser', 'upsert', adminEmail, adminPassword]
+              ['/usr/local/bin/pocketbase', '--dir', '/pb_data', 'superuser', 'upsert', adminEmail, adminPassword]
             );
             
             // If we get here without error, PocketBase is ready and user is created
@@ -179,7 +199,7 @@ export class ProjectManager {
         logger.error(`  Email: ${config.adminEmail}`);
         logger.error(`  Container: ${containerResult.containerName}`);
         logger.error(`  You can create the admin user manually with:`);
-        logger.error(`  docker exec ${containerResult.containerName} /usr/local/bin/pocketbase superuser upsert ${config.adminEmail} ${config.adminPassword || 'admin123'}`);
+        logger.error(`  docker exec ${containerResult.containerName} /usr/local/bin/pocketbase --dir /pb_data superuser upsert ${config.adminEmail} ${config.adminPassword || 'admin123'}`);
         // Don't fail the whole project creation if admin creation fails
         // User can always create manually
       }
@@ -478,10 +498,11 @@ export class ProjectManager {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Create user via PocketBase CLI
+    // IMPORTANT: Use --dir /pb_data to specify the data directory
     try {
       const output = await dockerManager.execInContainer(
         containerName,
-        ['/usr/local/bin/pocketbase', 'superuser', 'upsert', email, password]
+        ['/usr/local/bin/pocketbase', '--dir', '/pb_data', 'superuser', 'upsert', email, password]
       );
       
       logger.info(`User created successfully for ${containerName}`);

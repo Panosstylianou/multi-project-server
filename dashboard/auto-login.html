@@ -98,9 +98,9 @@
         let authSuccess = false;
         let pbToken = null;
 
-        // Try the standard admin auth endpoint
+        // Try the standard admin auth endpoint first
         try {
-          const authResponse = await fetch(`https://${projectDomain}/api/admins/auth-with-password`, {
+          let authResponse = await fetch(`https://${projectDomain}/api/admins/auth-with-password`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -112,12 +112,31 @@
             credentials: 'include', // Include cookies
           });
 
+          // If 404, try the alternative endpoint (some PocketBase versions use collections)
+          if (!authResponse.ok && authResponse.status === 404) {
+            console.log('Trying alternative auth endpoint...');
+            authResponse = await fetch(`https://${projectDomain}/api/collections/_superusers/auth-with-password`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                identity: credentials.email,
+                password: credentials.password
+              }),
+              credentials: 'include',
+            });
+          }
+
           if (authResponse.ok) {
             const authData = await authResponse.json();
             if (authData.token) {
               pbToken = authData.token;
               authSuccess = true;
             }
+          } else {
+            const errorText = await authResponse.text();
+            console.error('Auth failed:', authResponse.status, errorText);
           }
         } catch (e) {
           console.error('Authentication failed:', e);

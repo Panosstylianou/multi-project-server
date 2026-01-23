@@ -8,7 +8,7 @@ import path from 'path';
 const logger = createChildLogger('docker-manager');
 
 export class DockerManager {
-  private docker: Docker;
+  private docker: Docker | null = null;
   private networkName: string;
   private basePort = 8090;
   private usedPorts = new Set<number>();
@@ -39,11 +39,17 @@ export class DockerManager {
 
     // Check Docker connectivity
     try {
+      if (!this.docker) {
+        throw new Error('Docker client not initialized');
+      }
       await this.docker.ping();
       logger.info('Docker connection established');
     } catch (error) {
-      logger.error('Failed to connect to Docker', error);
-      throw new Error('Docker is not available. Please ensure Docker is running.');
+      logger.warn('Docker is not available - some features will be limited');
+      logger.warn('This is OK for dashboard testing, but project management will not work');
+      // Set docker to null to indicate it's not available
+      this.docker = null;
+      return; // Exit early if Docker not available
     }
 
     // Ensure network exists
@@ -56,6 +62,7 @@ export class DockerManager {
   }
 
   private async ensureNetwork(): Promise<void> {
+    if (!this.docker) return;
     const networks = await this.docker.listNetworks();
     const exists = networks.some((n) => n.Name === this.networkName);
 
@@ -72,6 +79,7 @@ export class DockerManager {
   }
 
   private async scanExistingContainers(): Promise<void> {
+    if (!this.docker) return;
     const containers = await this.docker.listContainers({ all: true });
     for (const container of containers) {
       if (container.Labels?.['com.pocketbase.managed'] === 'true') {
@@ -96,16 +104,19 @@ export class DockerManager {
   }
 
   async pullImage(): Promise<void> {
+    if (!this.docker) {
+      throw new Error('Docker is not available');
+    }
     logger.info(`Pulling PocketBase image: ${config.pocketbaseImage}`);
     
     return new Promise((resolve, reject) => {
-      this.docker.pull(config.pocketbaseImage, (err: Error | null, stream: import('stream').Readable) => {
+      this.docker!.pull(config.pocketbaseImage, (err: Error | null, stream: import('stream').Readable) => {
         if (err) {
           reject(err);
           return;
         }
 
-        this.docker.modem.followProgress(
+        this.docker!.modem.followProgress(
           stream,
           (pullErr: Error | null) => {
             if (pullErr) {
@@ -128,6 +139,9 @@ export class DockerManager {
     projectSlug: string,
     projectConfig: ProjectConfig
   ): Promise<{ containerId: string; containerName: string; port: number }> {
+    if (!this.docker) {
+      throw new Error('Docker is not available');
+    }
     const containerName = `pocketbase-${projectSlug}`;
     const port = this.getNextAvailablePort();
     const dataPath = paths.projectData(projectId);
@@ -192,18 +206,27 @@ export class DockerManager {
   }
 
   async startContainer(containerName: string): Promise<void> {
+    if (!this.docker) {
+      throw new Error('Docker is not available');
+    }
     logger.info(`Starting container: ${containerName}`);
     const container = this.docker.getContainer(containerName);
     await container.start();
   }
 
   async stopContainer(containerName: string): Promise<void> {
+    if (!this.docker) {
+      throw new Error('Docker is not available');
+    }
     logger.info(`Stopping container: ${containerName}`);
     const container = this.docker.getContainer(containerName);
     await container.stop();
   }
 
   async removeContainer(containerName: string): Promise<void> {
+    if (!this.docker) {
+      throw new Error('Docker is not available');
+    }
     logger.info(`Removing container: ${containerName}`);
     const container = this.docker.getContainer(containerName);
     
@@ -217,12 +240,18 @@ export class DockerManager {
   }
 
   async restartContainer(containerName: string): Promise<void> {
+    if (!this.docker) {
+      throw new Error('Docker is not available');
+    }
     logger.info(`Restarting container: ${containerName}`);
     const container = this.docker.getContainer(containerName);
     await container.restart();
   }
 
   async getContainerInfo(containerName: string): Promise<ContainerInfo | null> {
+    if (!this.docker) {
+      return null;
+    }
     try {
       const container = this.docker.getContainer(containerName);
       const info = await container.inspect();
@@ -254,6 +283,9 @@ export class DockerManager {
   }
 
   async getContainerLogs(containerName: string, tail = 100): Promise<string> {
+    if (!this.docker) {
+      throw new Error('Docker is not available');
+    }
     const container = this.docker.getContainer(containerName);
     const logs = await container.logs({
       stdout: true,
@@ -265,6 +297,9 @@ export class DockerManager {
   }
 
   async listManagedContainers(): Promise<ContainerInfo[]> {
+    if (!this.docker) {
+      return [];
+    }
     const containers = await this.docker.listContainers({
       all: true,
       filters: {
@@ -281,6 +316,9 @@ export class DockerManager {
   }
 
   async executeCommand(containerName: string, command: string[]): Promise<string> {
+    if (!this.docker) {
+      throw new Error('Docker is not available');
+    }
     const container = this.docker.getContainer(containerName);
     const exec = await container.exec({
       Cmd: command,
@@ -304,6 +342,9 @@ export class DockerManager {
    * Execute a command in a running container
    */
   async execInContainer(containerName: string, cmd: string[]): Promise<string> {
+    if (!this.docker) {
+      throw new Error('Docker is not available');
+    }
     const container = this.docker.getContainer(containerName);
     
     const exec = await container.exec({

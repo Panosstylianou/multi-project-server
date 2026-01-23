@@ -408,26 +408,130 @@ router.get('/:id/auto-login-url', asyncHandler(async (req, res) => {
     return;
   }
 
-  // For now, we'll authenticate via PocketBase API to get a token
-  // Then construct a URL that will auto-login
+  // Validate credentials exist
+  if (!credentials.adminEmail || !credentials.adminPassword) {
+    logger.warn(`Missing credentials for project ${id}:`, {
+      hasEmail: !!credentials.adminEmail,
+      hasPassword: !!credentials.adminPassword,
+    });
+    res.status(400).json({
+      success: false,
+      error: 'Credentials are incomplete',
+      message: 'Admin email or password is missing',
+    });
+    return;
+  }
+
+  // Authenticate via PocketBase API to get a token
+  // Try both endpoints in case of version differences
   try {
-    const authResponse = await fetch(`https://${project.domain}/api/admins/auth-with-password`, {
+    let authResponse;
+    let authEndpoint = `/api/admins/auth-with-password`;
+    
+    const authBody = {
+      identity: credentials.adminEmail,
+      password: credentials.adminPassword,
+    };
+    
+    logger.debug(`Attempting authentication for ${project.domain}`, {
+      email: credentials.adminEmail,
+      endpoint: authEndpoint,
+      hasPassword: !!credentials.adminPassword,
+    });
+    
+    // Try the standard admin auth endpoint first
+    authResponse = await fetch(`https://${project.domain}${authEndpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        identity: credentials.adminEmail,
-        password: credentials.adminPassword,
-      }),
+      body: JSON.stringify(authBody),
     });
-
+    
+    // If that fails with 404, try the collections endpoint (some PocketBase versions use this)
+    if (!authResponse.ok && authResponse.status === 404) {
+      logger.debug(`Trying alternative auth endpoint for ${project.domain}`);
+      authEndpoint = `/api/collections/_superusers/auth-with-password`;
+      authResponse = await fetch(`https://${project.domain}${authEndpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(authBody),
+      });
+    }
+    
+    // If we get a 400, check the error and try alternative formats
+    if (!authResponse.ok && authResponse.status === 400) {
+      // Clone the response to read it without consuming it
+      const responseClone = authResponse.clone();
+      const errorText = await responseClone.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { message: errorText };
+      }
+      
+      // Check if it's the identity validation error - try with email field instead
+      if (errorData.data?.identity?.code === 'validation_required') {
+        logger.debug(`Trying with email field instead of identity for ${project.domain}`);
+        authResponse = await fetch(`https://${project.domain}${authEndpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: credentials.adminEmail,
+            password: credentials.adminPassword,
+          }),
+        });
+      }
+    }
+    
+    // Handle failed authentication (read error only if we haven't already)
     if (!authResponse.ok) {
+      let errorText;
+      let errorData;
+      
+      // Try to read the error, but handle the case where body was already consumed
+      try {
+        errorText = await authResponse.text();
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+      } catch (e) {
+        // Body already consumed, use a generic error
+        errorData = { message: 'Authentication failed', status: authResponse.status };
+      }
+      
+      logger.warn(`PocketBase auth failed for ${project.domain}:`, {
+        status: authResponse.status,
+        statusText: authResponse.statusText,
+        error: errorData,
+        email: credentials.adminEmail,
+        endpoint: authEndpoint,
+      });
+      
+      // Return detailed error for debugging
       res.json({
         success: false,
         error: 'Failed to authenticate with PocketBase',
-        message: 'Admin user may not exist or credentials are incorrect. Try logging in manually.',
+        message: `Admin user may not exist or credentials are incorrect. Status: ${authResponse.status}. Try logging in manually.`,
         adminUrl: `https://${project.domain}/_/`,
+        details: {
+          status: authResponse.status,
+          statusText: authResponse.statusText,
+          error: errorData,
+          endpoint: authEndpoint,
+        },
+        credentials: {
+          email: credentials.adminEmail,
+          // Don't send password, but indicate we have it
+          hasPassword: !!credentials.adminPassword,
+        },
       });
       return;
     }
@@ -449,13 +553,25 @@ router.get('/:id/auto-login-url', asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
-    logger.warn(`Failed to generate auto-login URL for ${id}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    logger.warn(`Failed to generate auto-login URL for ${id}:`, {
+      error: errorMessage,
+      stack: errorStack,
+      domain: project.domain,
+      email: credentials.adminEmail,
+    });
     
     res.json({
       success: false,
       error: 'Failed to generate auto-login URL',
-      message: 'You can login manually with your credentials',
+      message: `Error: ${errorMessage}. You can login manually with your credentials.`,
       adminUrl: `https://${project.domain}/_/`,
+      details: {
+        error: errorMessage,
+        domain: project.domain,
+      },
     });
   }
 }));

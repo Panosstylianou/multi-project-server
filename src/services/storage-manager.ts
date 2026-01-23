@@ -26,15 +26,20 @@ export class StorageManager {
   async initialize(): Promise<void> {
     logger.info('Initializing storage manager...');
 
-    // Ensure directories exist
-    await fs.mkdir(paths.data, { recursive: true });
-    await fs.mkdir(paths.backups, { recursive: true });
-    await fs.mkdir(path.join(paths.data, 'projects'), { recursive: true });
+    try {
+      // Ensure directories exist
+      await fs.mkdir(paths.data, { recursive: true });
+      await fs.mkdir(paths.backups, { recursive: true });
+      await fs.mkdir(path.join(paths.data, 'projects'), { recursive: true });
 
-    // Load existing metadata
-    await this.loadMetadata();
+      // Load existing metadata
+      await this.loadMetadata();
 
-    logger.info('Storage manager initialized');
+      logger.info('Storage manager initialized');
+    } catch (error) {
+      logger.error({ err: error }, 'Failed to initialize storage manager');
+      throw error;
+    }
   }
 
   private async loadMetadata(): Promise<void> {

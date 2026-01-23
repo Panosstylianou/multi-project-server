@@ -19,7 +19,8 @@
     "docker:down": "docker-compose down",
     "migrate:oceannet": "tsx scripts/migrate-oceannet-collections.ts",
     "fix:admin": "./scripts/fix-admin-user-remote.sh",
-    "fix:admin:api": "tsx scripts/fix-admin-user-api.ts"
+    "fix:admin:api": "tsx scripts/fix-admin-user-api.ts",
+    "add:database": "tsx scripts/add-existing-database.ts"
   },
   "keywords": [
     "pocketbase",
