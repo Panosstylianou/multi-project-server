@@ -35,6 +35,20 @@ services:
       - "traefik.http.routers.manager.entrypoints=web"
       - "traefik.http.services.manager.loadbalancer.server.port=3000"
 
+  # Oceannet Leads Pipeline API
+  pipeline-api:
+    image: ${ECR_REGISTRY:-323603432190.dkr.ecr.eu-west-2.amazonaws.com}/oceannet-pipeline-api:latest
+    container_name: pipeline-api
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    env_file:
+      - /opt/pipeline/.env
+    volumes:
+      - pipeline-logs:/app/logs
+    networks:
+      - pocketbase-network
+
   # Traefik reverse proxy
   traefik:
     image: traefik:v2.11
@@ -80,4 +94,6 @@ volumes:
     name: pocketbase-backups
   traefik-certs:
     name: traefik-certs
+  pipeline-logs:
+    name: pipeline-logs
 

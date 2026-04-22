@@ -16,87 +16,79 @@ if ! aws sts get-caller-identity &>/dev/null; then
   exit 1
 fi
 
-# Read the Oceannet database info from local files
-OCEANNET_METADATA=$(cat << 'EOF'
-{
-  "id": "HemBb2I2pmtw",
-  "name": "Oceannet",
-  "slug": "api",
-  "clientName": "Oceannet",
-  "status": "running",
-  "containerName": "pocketbase-api",
-  "port": 8090,
-  "domain": "api.db.oceannet.dev",
-  "createdAt": "2026-01-23T10:00:00.000Z",
-  "updatedAt": "2026-01-23T12:00:00.000Z",
-  "config": {
-    "memoryLimit": "256m",
-    "cpuLimit": "0.5",
-    "autoBackup": true,
-    "enabledFeatures": {
-      "auth": true,
-      "storage": true,
-      "realtime": true
-    }
-  }
-}
-EOF
-)
-
-OCEANNET_CREDENTIALS=$(cat << 'EOF'
-{
-  "projectId": "HemBb2I2pmtw",
-  "projectName": "Oceannet",
-  "projectSlug": "api",
-  "domain": "api.db.oceannet.dev",
-  "adminEmail": "hello@oceannet.dev",
-  "adminPassword": "BetterMapRules8",
-  "createdAt": "2026-01-23T10:00:00.000Z",
-  "updatedAt": "2026-01-23T12:00:00.000Z"
-}
-EOF
-)
-
 echo "📝 Sending sync command via SSM..."
 COMMAND_ID=$(aws ssm send-command \
   --instance-ids "$INSTANCE_ID" \
   --document-name "AWS-RunShellScript" \
   --comment "Sync Oceannet database to metadata" \
-  --parameters "commands=[
-    \"cd /opt/pocketbase-manager\",
-    \"echo '=== Checking current metadata ==='\",
-    \"cat data/metadata.json | jq '.projects | keys' || echo 'No metadata.json'\",
-    \"echo ''\",
-    \"echo '=== Checking if Oceannet container exists ==='\",
-    \"docker ps -a | grep pocketbase-api || echo 'Oceannet container not found'\",
-    \"echo ''\",
-    \"echo '=== Adding Oceannet to metadata.json ==='\",
-    \"# Backup existing metadata\",
-    \"cp data/metadata.json data/metadata.json.backup\",
-    \"# Use jq to add Oceannet project\",
-    \"cat data/metadata.json | jq '.projects + {\"HemBb2I2pmtw\": {\"id\": \"HemBb2I2pmtw\", \"name\": \"Oceannet\", \"slug\": \"api\", \"clientName\": \"Oceannet\", \"status\": \"running\", \"containerName\": \"pocketbase-api\", \"port\": 8090, \"domain\": \"api.db.oceannet.dev\", \"createdAt\": \"2026-01-23T10:00:00.000Z\", \"updatedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\", \"config\": {\"memoryLimit\": \"256m\", \"cpuLimit\": \"0.5\", \"autoBackup\": true, \"enabledFeatures\": {\"auth\": true, \"storage\": true, \"realtime\": true}}}} | {projects: ., lastUpdated: \"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"} > data/metadata.json.tmp\",
-    \"mv data/metadata.json.tmp data/metadata.json\",
-    \"echo 'Metadata updated'\",
-    \"echo ''\",
-    \"echo '=== Adding Oceannet to database-credentials.json ==='\",
-    \"# Backup existing credentials\",
-    \"cp data/database-credentials.json data/database-credentials.json.backup\",
-    \"# Use jq to add Oceannet credentials\",
-    \"cat data/database-credentials.json | jq '.databases + {\"HemBb2I2pmtw\": {\"projectId\": \"HemBb2I2pmtw\", \"projectName\": \"Oceannet\", \"projectSlug\": \"api\", \"domain\": \"api.db.oceannet.dev\", \"adminEmail\": \"hello@oceannet.dev\", \"adminPassword\": \"BetterMapRules8\", \"createdAt\": \"2026-01-23T10:00:00.000Z\", \"updatedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"}} | {databases: ., lastUpdated: \"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"} > data/database-credentials.json.tmp\",
-    \"mv data/database-credentials.json.tmp data/database-credentials.json\",
-    \"echo 'Credentials updated'\",
-    \"echo ''\",
-    \"echo '=== Verifying updates ==='\",
-    \"echo 'Projects in metadata:'\",
-    \"cat data/metadata.json | jq '.projects | keys'\",
-    \"echo 'Databases in credentials:'\",
-    \"cat data/database-credentials.json | jq '.databases | keys'\",
-    \"echo ''\",
-    \"echo '=== Restarting manager container to reload metadata ==='\",
-    \"docker restart pocketbase-manager || echo 'Container restart failed'\",
-    \"sleep 5\",
-    \"echo '✅ Sync complete!'\"
-  ]" \
+  --parameters 'commands=[
+    "cd /opt/pocketbase-manager",
+    "echo \"=== Checking current metadata ===\"",
+    "cat data/metadata.json | jq '\''.projects | keys'\'' || echo \"No metadata.json\"",
+    "echo \"\"",
+    "echo \"=== Checking if Oceannet container exists ===\"",
+    "docker ps -a | grep pocketbase-api || echo \"Oceannet container not found\"",
+    "echo \"\"",
+    "echo \"=== Adding Oceannet to metadata.json ===\"",
+    "cp data/metadata.json data/metadata.json.backup",
+    "cat > /tmp/oceannet-project.json << '\''PROJEOF'\''",
+    "{",
+    "  \"id\": \"HemBb2I2pmtw\",",
+    "  \"name\": \"Oceannet\",",
+    "  \"slug\": \"api\",",
+    "  \"clientName\": \"Oceannet\",",
+    "  \"status\": \"running\",",
+    "  \"containerName\": \"pocketbase-api\",",
+    "  \"port\": 8090,",
+    "  \"domain\": \"api.db.oceannet.dev\",",
+    "  \"createdAt\": \"2026-01-23T10:00:00.000Z\",",
+    "  \"updatedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\",",
+    "  \"config\": {",
+    "    \"memoryLimit\": \"256m\",",
+    "    \"cpuLimit\": \"0.5\",",
+    "    \"autoBackup\": true,",
+    "    \"enabledFeatures\": {",
+    "      \"auth\": true,",
+    "      \"storage\": true,",
+    "      \"realtime\": true",
+    "    }",
+    "  }",
+    "}",
+    "PROJEOF",
+    "cat data/metadata.json | jq --slurpfile proj /tmp/oceannet-project.json '\''.projects + {\"HemBb2I2pmtw\": $proj[0]} | {projects: ., lastUpdated: (now | todateiso8601)}'\'' > data/metadata.json.tmp",
+    "mv data/metadata.json.tmp data/metadata.json",
+    "echo \"Metadata updated\"",
+    "echo \"\"",
+    "echo \"=== Adding Oceannet to database-credentials.json ===\"",
+    "cp data/database-credentials.json data/database-credentials.json.backup",
+    "cat > /tmp/oceannet-creds.json << '\''CREDSEOF'\''",
+    "{",
+    "  \"projectId\": \"HemBb2I2pmtw\",",
+    "  \"projectName\": \"Oceannet\",",
+    "  \"projectSlug\": \"api\",",
+    "  \"domain\": \"api.db.oceannet.dev\",",
+    "  \"adminEmail\": \"hello@oceannet.dev\",",
+    "  \"adminPassword\": \"BetterMapRules8\",",
+    "  \"createdAt\": \"2026-01-23T10:00:00.000Z\",",
+    "  \"updatedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"",
+    "}",
+    "CREDSEOF",
+    "cat data/database-credentials.json | jq --slurpfile creds /tmp/oceannet-creds.json '\''.databases + {\"HemBb2I2pmtw\": $creds[0]} | {databases: ., lastUpdated: (now | todateiso8601)}'\'' > data/database-credentials.json.tmp",
+    "mv data/database-credentials.json.tmp data/database-credentials.json",
+    "echo \"Credentials updated\"",
+    "echo \"\"",
+    "echo \"=== Verifying updates ===\"",
+    "echo \"Projects in metadata:\"",
+    "cat data/metadata.json | jq '\''.projects | keys'\''",
+    "echo \"Databases in credentials:\"",
+    "cat data/database-credentials.json | jq '\''.databases | keys'\''",
+    "echo \"\"",
+    "echo \"=== Restarting manager container to reload metadata ===\"",
+    "docker restart pocketbase-manager || echo \"Container restart failed\"",
+    "sleep 5",
+    "echo \"✅ Sync complete!\"",
+    "rm -f /tmp/oceannet-project.json /tmp/oceannet-creds.json"
+  ]' \
   --output text \
   --query 'Command.CommandId')
 
