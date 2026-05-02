@@ -48,6 +48,11 @@ services:
       - pipeline-logs:/app/logs
     networks:
       - pocketbase-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pipeline-api.rule=Host(`pipeline.db.oceannet.dev`)"
+      - "traefik.http.routers.pipeline-api.entrypoints=web"
+      - "traefik.http.services.pipeline-api.loadbalancer.server.port=8010"
 
   # Traefik reverse proxy
   traefik:
